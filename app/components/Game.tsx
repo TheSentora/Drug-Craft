@@ -43,8 +43,8 @@ function CropIcon({
 }
 
 function FarmCanvas() {
-  const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rendererRef = useRef<FarmRenderer | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,16 +52,36 @@ function FarmCanvas() {
     const renderer = new FarmRenderer(canvas, (i) =>
       gameStore.handlePlotClick(i),
     );
+    rendererRef.current = renderer;
     renderer.start();
-    return () => renderer.destroy();
+    return () => {
+      renderer.destroy();
+      rendererRef.current = null;
+    };
   }, []);
 
+  const btn =
+    "flex h-9 w-9 items-center justify-center rounded-lg bg-black/45 text-lg font-bold text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/65";
+
   return (
-    <div
-      ref={wrapRef}
-      className="no-select absolute inset-0 overflow-hidden rounded-2xl border border-black/30 bg-[#2c6a33] shadow-[inset_0_2px_20px_rgba(0,0,0,0.35)]"
-    >
+    <div className="no-select absolute inset-0 touch-none overflow-hidden rounded-2xl border border-black/30 bg-[#13301f] shadow-[inset_0_2px_24px_rgba(0,0,0,0.45)]">
       <canvas ref={canvasRef} className="block h-full w-full" />
+      {/* Camera controls */}
+      <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+        <button className={btn} title="Zoom in" onClick={() => rendererRef.current?.zoomBy(1.2)}>
+          +
+        </button>
+        <button className={btn} title="Zoom out" onClick={() => rendererRef.current?.zoomBy(1 / 1.2)}>
+          −
+        </button>
+        <button
+          className={`${btn} text-sm`}
+          title="Recenter on farm"
+          onClick={() => rendererRef.current?.recenter()}
+        >
+          ⌂
+        </button>
+      </div>
     </div>
   );
 }
@@ -184,7 +204,8 @@ export default function Game() {
 
           <div className="mt-2 flex items-center justify-between gap-2 text-xs text-emerald-300/60">
             <span>
-              Tap a plot to plant the selected crop. Tap a ripe plot to harvest.
+              Drag to pan · scroll to zoom · tap a plot to plant, tap a ripe
+              plot to harvest.
             </span>
             <button
               onClick={() => gameStore.harvestAll()}

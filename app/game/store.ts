@@ -3,21 +3,20 @@
 import { CROPS } from "./crops";
 import { levelForXp } from "./levels";
 import { CropId, MessageKind, Plot, SaveData } from "./types";
+import { FIELD_H, FIELD_W } from "./world";
 
 // ---- Board / economy constants -------------------------------------------
 
-export const COLS = 4;
-export const ROWS = 3;
-export const TOTAL_PLOTS = COLS * ROWS;
-const INITIAL_UNLOCKED = 6;
-const START_CASH = 120;
-const SAVE_VERSION = 1;
-const SAVE_KEY = "drugcraft:save:v1";
+export const TOTAL_PLOTS = FIELD_W * FIELD_H;
+const INITIAL_UNLOCKED = 9;
+const START_CASH = 200;
+const SAVE_VERSION = 2;
+const SAVE_KEY = "drugcraft:save:v2";
 
 /** Price to unlock the next plot, given how many are already unlocked. */
 export function plotPrice(unlockedCount: number): number {
   const bought = Math.max(0, unlockedCount - INITIAL_UNLOCKED);
-  return Math.floor(140 * Math.pow(1.9, bought));
+  return Math.floor(100 * Math.pow(1.6, bought));
 }
 
 /** 0..1 growth progress of a plot at time `now`. */
