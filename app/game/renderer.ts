@@ -280,12 +280,14 @@ export class FarmRenderer {
     const w = this.cssW;
     const h = this.cssH;
 
-    // Sky / sea backdrop.
-    const bg = ctx.createLinearGradient(0, 0, 0, h);
-    bg.addColorStop(0, "#173a2a");
-    bg.addColorStop(1, "#0c241a");
-    ctx.fillStyle = bg;
+    // Ocean fills the whole screen — the island sits on it (Clash/Hay Day style).
+    const sea = ctx.createLinearGradient(0, 0, 0, h);
+    sea.addColorStop(0, "#2f9bc9");
+    sea.addColorStop(1, "#1b6e9b");
+    ctx.fillStyle = sea;
     ctx.fillRect(0, 0, w, h);
+    this.drawWaves(w, h);
+    this.drawIslandBase();
 
     const state = gameStore.getState();
     const now = Date.now();
@@ -321,6 +323,77 @@ export class FarmRenderer {
   }
 
   // ---- Ground tiles ------------------------------------------------------
+
+  private drawWaves(w: number, h: number) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 110; i++) {
+      const x = (i * 167) % (w + 40);
+      const y = (i * 97) % (h + 40);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + 5, y - 4, x + 11, y);
+      ctx.quadraticCurveTo(x + 17, y + 4, x + 23, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private islandOuterCorners(): Record<
+    "top" | "right" | "bottom" | "left",
+    [number, number]
+  > {
+    const hw = (TILE_W / 2) * this.cam.zoom;
+    const hh = (TILE_H / 2) * this.cam.zoom;
+    const t = TILE_THICK * this.cam.zoom;
+    const ts = (x: number, y: number) =>
+      tileToScreen(x, y, this.cam, this.viewW, this.viewH);
+    const top = ts(ISLAND_MIN_X, ISLAND_MIN_Y);
+    const right = ts(ISLAND_MAX_X, ISLAND_MIN_Y);
+    const bottom = ts(ISLAND_MAX_X, ISLAND_MAX_Y);
+    const left = ts(ISLAND_MIN_X, ISLAND_MAX_Y);
+    return {
+      top: [top[0], top[1] - hh],
+      right: [right[0] + hw, right[1]],
+      bottom: [bottom[0], bottom[1] + hh + t],
+      left: [left[0] - hw, left[1]],
+    };
+  }
+
+  /** Sand beach + shallow-water ring beneath the island tiles. */
+  private drawIslandBase() {
+    const { ctx } = this;
+    const c = this.islandOuterCorners();
+    const cx = (c.top[0] + c.bottom[0]) / 2;
+    const cy = (c.left[1] + c.right[1]) / 2;
+    const z = this.cam.zoom;
+
+    const expand = (p: [number, number], by: number): [number, number] => {
+      const dx = p[0] - cx;
+      const dy = p[1] - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      return [p[0] + (dx / len) * by, p[1] + (dy / len) * by];
+    };
+    const fillDiamond = (by: number, color: string) => {
+      const pts = [
+        expand(c.top, by),
+        expand(c.right, by),
+        expand(c.bottom, by),
+        expand(c.left, by),
+      ];
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+
+    fillDiamond(18 * z, "rgba(150,226,238,0.45)"); // shallow water
+    fillDiamond(8 * z, "#e7d29a"); // sand beach
+  }
 
   private diamondPath(sx: number, sy: number, hw: number, hh: number) {
     const { ctx } = this;
