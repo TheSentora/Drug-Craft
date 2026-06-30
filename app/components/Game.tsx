@@ -19,6 +19,29 @@ function fmtGrow(seconds: number): string {
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
 }
 
+/** Crop icon: the hand-made SVG, falling back to the emoji if it fails to load. */
+function CropIcon({
+  id,
+  emoji,
+  className,
+}: {
+  id: CropId;
+  emoji: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className={className}>{emoji}</span>;
+  return (
+    <img
+      src={`/sprites/${id}.svg`}
+      alt=""
+      draggable={false}
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
 function FarmCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -196,7 +219,11 @@ export default function Game() {
                     } ${locked ? "cursor-not-allowed opacity-45" : ""}`}
                   >
                     <div className="flex w-full items-center justify-between">
-                      <span className="text-xl">{c.emoji}</span>
+                      <CropIcon
+                        id={c.id}
+                        emoji={c.emoji}
+                        className="h-7 w-7 object-contain"
+                      />
                       {locked ? (
                         <span className="text-[10px] font-bold text-amber-400">
                           Lv {c.unlockLevel}
@@ -250,7 +277,11 @@ export default function Game() {
                       className="flex items-center justify-between rounded-xl bg-black/20 px-2.5 py-2"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{c.emoji}</span>
+                        <CropIcon
+                          id={id}
+                          emoji={c.emoji}
+                          className="h-6 w-6 object-contain"
+                        />
                         <div className="leading-tight">
                           <div className="text-xs font-semibold">{c.name}</div>
                           <div className="text-[10px] text-emerald-300/50">

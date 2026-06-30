@@ -1,6 +1,7 @@
 "use client";
 
 import { CROPS } from "./crops";
+import { cropSpriteUrl } from "./sprites";
 import {
   COLS,
   ROWS,
@@ -9,7 +10,33 @@ import {
   plantProgress,
   plotPrice,
 } from "./store";
-import { Plot } from "./types";
+import { CropId, Plot } from "./types";
+
+// Optional per-crop artwork. Loaded lazily the first time a crop is drawn and
+// cached (success or failure). Crops with no PNG fall back to their emoji.
+interface CropSprite {
+  img: HTMLImageElement;
+  frames: number; // growth-stage frames in the horizontal strip
+  ok: boolean;
+}
+const cropSprites = new Map<CropId, CropSprite>();
+function getCropSprite(id: CropId): CropSprite | null {
+  if (typeof window === "undefined") return null;
+  let entry = cropSprites.get(id);
+  if (!entry) {
+    const img = new Image();
+    entry = { img, frames: 1, ok: false };
+    const e = entry;
+    img.onload = () => {
+      e.frames = Math.max(1, Math.round(img.naturalWidth / img.naturalHeight));
+      e.ok = true;
+    };
+    // onerror leaves ok=false → emoji fallback. No retry.
+    img.src = cropSpriteUrl(id);
+    cropSprites.set(id, entry);
+  }
+  return entry;
+}
 
 interface Rect {
   x: number;
@@ -258,21 +285,40 @@ export class FarmRenderer {
       const p = plantProgress(plot, now);
       const ready = isReady(plot, now);
 
-      // Crop emoji grows as it matures.
-      const size = r.h * (0.32 + 0.4 * p);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = `${size}px ${EMOJI_FONT}`;
-      ctx.globalAlpha = 0.45 + 0.55 * p;
+      // Draw the crop, growing as it matures: real PNG if one was dropped in
+      // for this crop, otherwise an emoji fallback.
+      const sprite = getCropSprite(plot.crop);
+      const pulse = ready ? 8 + 6 * Math.sin(now / 280) : 0;
 
-      if (ready) {
-        const pulse = 8 + 6 * Math.sin(now / 280);
-        ctx.shadowColor = "rgba(120,255,140,0.9)";
-        ctx.shadowBlur = pulse;
+      if (sprite && sprite.ok) {
+        const frame = Math.min(sprite.frames - 1, Math.floor(p * sprite.frames));
+        const fw = sprite.img.naturalWidth / sprite.frames;
+        const fh = sprite.img.naturalHeight;
+        const draw = r.h * (0.52 + 0.32 * p);
+        const dx = cx - draw / 2;
+        const dy = cy - draw / 2 - r.h * 0.05;
+        ctx.save();
+        ctx.imageSmoothingEnabled = true; // smooth vector (SVG) scaling
+        if (ready) {
+          ctx.shadowColor = "rgba(120,255,140,0.9)";
+          ctx.shadowBlur = pulse;
+        }
+        ctx.drawImage(sprite.img, frame * fw, 0, fw, fh, dx, dy, draw, draw);
+        ctx.restore();
+      } else {
+        const size = r.h * (0.32 + 0.4 * p);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `${size}px ${EMOJI_FONT}`;
+        ctx.globalAlpha = 0.45 + 0.55 * p;
+        if (ready) {
+          ctx.shadowColor = "rgba(120,255,140,0.9)";
+          ctx.shadowBlur = pulse;
+        }
+        ctx.fillText(def.emoji, cx, cy - r.h * 0.04);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
       }
-      ctx.fillText(def.emoji, cx, cy - r.h * 0.04);
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
 
       if (ready) {
         // READY pill.
