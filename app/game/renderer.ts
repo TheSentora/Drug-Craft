@@ -83,7 +83,11 @@ export class FarmRenderer {
   private raf = 0;
   private cssW = 0;
   private cssH = 0;
-  private centered = false;
+  // Projection origin: the world is centered on (viewW/2, viewH/2). These are
+  // offset from the real canvas size so the island sits left of the HUD panel.
+  private viewW = 0;
+  private viewH = 0;
+  private userAdjusted = false; // true once the player pans/zooms (stops auto-fit)
   private ro: ResizeObserver | null = null;
 
   private cam: Camera = { lookX: FIELD_CENTER.x, lookY: FIELD_CENTER.y, zoom: 1 };
@@ -150,10 +154,13 @@ export class FarmRenderer {
   recenter() {
     this.cam.lookX = FIELD_CENTER.x;
     this.cam.lookY = FIELD_CENTER.y;
+    this.cam.zoom = this.fitZoom();
+    this.userAdjusted = false; // resume auto-fit on resize
   }
 
   zoomBy(factor: number) {
     this.cam.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.cam.zoom * factor));
+    this.userAdjusted = true;
   }
 
   // ---- Sizing ------------------------------------------------------------
@@ -170,10 +177,30 @@ export class FarmRenderer {
     this.canvas.style.width = `${rect.width}px`;
     this.canvas.style.height = `${rect.height}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (!this.centered) {
-      this.recenter();
-      this.centered = true;
-    }
+
+    // Reserve room on the right for the HUD panel on wide screens, and nudge
+    // the view down a touch so the island clears the floating top bar.
+    const panel = this.cssW > 900 ? 330 : 0;
+    this.viewW = this.cssW - panel;
+    this.viewH = this.cssH + 40;
+
+    // Auto-fit to the viewport until the player pans or zooms themselves.
+    if (!this.userAdjusted) this.recenter();
+  }
+
+  /** Zoom that makes the whole island fill most of the available view. */
+  private fitZoom(): number {
+    const spanX =
+      ISLAND_MAX_X - ISLAND_MIN_Y - (ISLAND_MIN_X - ISLAND_MAX_Y); // (x-y) span
+    const spanY =
+      ISLAND_MAX_X + ISLAND_MAX_Y - (ISLAND_MIN_X + ISLAND_MIN_Y); // (x+y) span
+    const worldW = spanX * (TILE_W / 2);
+    const worldH = spanY * (TILE_H / 2);
+    const fit = Math.min(
+      (this.viewW * 0.94) / worldW,
+      (this.cssH * 0.8) / worldH,
+    );
+    return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit));
   }
 
   // ---- Input -------------------------------------------------------------
@@ -202,13 +229,16 @@ export class FarmRenderer {
     if (this.down) {
       const dx = x - this.startSX;
       const dy = y - this.startSY;
-      if (Math.abs(dx) + Math.abs(dy) > 4) this.moved = true;
+      if (Math.abs(dx) + Math.abs(dy) > 4) {
+        this.moved = true;
+        this.userAdjusted = true; // panning disables auto-fit
+      }
       const d = panDelta(dx, dy, { ...this.cam, zoom: this.startZoom });
       this.cam.lookX = this.clampLook(this.startLookX + d.dLookX, ISLAND_MIN_X, ISLAND_MAX_X);
       this.cam.lookY = this.clampLook(this.startLookY + d.dLookY, ISLAND_MIN_Y, ISLAND_MAX_Y);
       this.canvas.style.cursor = "grabbing";
     } else {
-      const t = screenToTile(x, y, this.cam, this.cssW, this.cssH);
+      const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
       this.hover = { x: Math.round(t.x), y: Math.round(t.y) };
       const idx = plotIndexAt(this.hover.x, this.hover.y);
       this.canvas.style.cursor = idx >= 0 ? "pointer" : "grab";
@@ -224,7 +254,7 @@ export class FarmRenderer {
     } catch {}
     if (this.moved) return; // it was a pan, not a tap
     const [x, y] = this.localPoint(e);
-    const t = screenToTile(x, y, this.cam, this.cssW, this.cssH);
+    const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
     const idx = plotIndexAt(Math.round(t.x), Math.round(t.y));
     if (idx >= 0) this.onTileClick(idx);
   }
@@ -277,7 +307,7 @@ export class FarmRenderer {
     objects.sort((a, b) => a.depth - b.depth || a.x - b.x);
 
     for (const o of objects) {
-      const [sx, sy] = tileToScreen(o.x, o.y, this.cam, w, h);
+      const [sx, sy] = tileToScreen(o.x, o.y, this.cam, this.viewW, this.viewH);
       if (o.kind === "crop" && o.plotIndex != null) {
         this.drawCrop(sx, sy, state.plots[o.plotIndex], now);
       } else if (o.kind === "tree") {
@@ -345,7 +375,7 @@ export class FarmRenderer {
   ) {
     if (!isIsland(tx, ty)) return;
     const { ctx } = this;
-    const [sx, sy] = tileToScreen(tx, ty, this.cam, this.cssW, this.cssH);
+    const [sx, sy] = tileToScreen(tx, ty, this.cam, this.viewW, this.viewH);
     const hw = (TILE_W / 2) * this.cam.zoom;
     const hh = (TILE_H / 2) * this.cam.zoom;
     const checker = (tx + ty) % 2 === 0;

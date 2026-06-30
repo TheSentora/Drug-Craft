@@ -98,8 +98,8 @@ export interface Camera {
   zoom: number;
 }
 
-export const MIN_ZOOM = 0.55;
-export const MAX_ZOOM = 1.7;
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 3.6;
 
 export function tileToScreen(
   tx: number,

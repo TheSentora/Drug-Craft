@@ -64,7 +64,7 @@ function FarmCanvas() {
     "flex h-9 w-9 items-center justify-center rounded-lg bg-black/45 text-lg font-bold text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/65";
 
   return (
-    <div className="no-select absolute inset-0 touch-none overflow-hidden rounded-2xl border border-black/30 bg-[#13301f] shadow-[inset_0_2px_24px_rgba(0,0,0,0.45)]">
+    <div className="no-select absolute inset-0 touch-none overflow-hidden bg-[#0c241a]">
       <canvas ref={canvasRef} className="block h-full w-full" />
       {/* Camera controls */}
       <div className="absolute bottom-3 right-3 flex flex-col gap-2">
@@ -141,19 +141,22 @@ export default function Game() {
         : "bg-slate-700/90";
 
   return (
-    <main className="flex min-h-screen flex-col bg-gradient-to-b from-[#0f1a12] to-[#0a130d] text-emerald-50">
-      {/* Top bar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-900/60 bg-black/30 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="flex items-center gap-2">
+    <main className="relative h-screen w-screen overflow-hidden bg-[#0c241a] text-emerald-50">
+      {/* Full-screen farm world */}
+      <FarmCanvas />
+
+      {/* Floating top bar */}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3 sm:p-4">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-black/45 px-4 py-2 ring-1 ring-white/10 backdrop-blur">
           <span className="text-2xl">🌿</span>
           <h1 className="text-xl font-extrabold tracking-tight">
             Drug<span className="text-emerald-400">Craft</span>
           </h1>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-black/45 px-4 py-2 ring-1 ring-white/10 backdrop-blur">
           {/* Level + XP */}
-          <div className="min-w-[150px]">
+          <div className="min-w-[140px]">
             <div className="mb-1 flex items-center justify-between text-xs font-semibold text-emerald-200/80">
               <span>Level {level}</span>
               <span>
@@ -185,45 +188,38 @@ export default function Game() {
         </div>
       </header>
 
-      {/* Body */}
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4 lg:flex-row">
-        {/* Farm board */}
-        <section className="relative flex min-h-[420px] flex-1 flex-col">
-          <div className="relative min-h-0 flex-1">
-            <FarmCanvas />
-            {msg && (
-              <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2">
-                <div
-                  className={`dc-pop rounded-full px-4 py-1.5 text-sm font-semibold text-white shadow-lg ${msgColor}`}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            )}
+      {/* Toast message */}
+      {msg && (
+        <div className="pointer-events-none absolute left-1/2 top-24 z-30 -translate-x-1/2">
+          <div
+            className={`dc-pop rounded-full px-4 py-1.5 text-sm font-semibold text-white shadow-lg ${msgColor}`}
+          >
+            {msg.text}
           </div>
+        </div>
+      )}
 
-          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-emerald-300/60">
-            <span>
-              Drag to pan · scroll to zoom · tap a plot to plant, tap a ripe
-              plot to harvest.
-            </span>
-            <button
-              onClick={() => gameStore.harvestAll()}
-              className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow transition hover:bg-emerald-500"
-            >
-              Harvest all
-            </button>
-          </div>
-        </section>
+      {/* Bottom-left: harvest + help */}
+      <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex items-center gap-3">
+        <button
+          onClick={() => gameStore.harvestAll()}
+          className="pointer-events-auto rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-lg ring-1 ring-emerald-300/30 transition hover:bg-emerald-500"
+        >
+          Harvest all
+        </button>
+        <span className="hidden rounded-lg bg-black/40 px-3 py-1.5 text-xs text-emerald-200/70 backdrop-blur sm:inline">
+          Drag to pan · scroll to zoom · tap a plot to plant / harvest
+        </span>
+      </div>
 
-        {/* Side panel */}
-        <aside className="flex w-full flex-col gap-4 lg:w-80">
-          {/* Seeds */}
-          <div className="rounded-2xl border border-emerald-900/60 bg-black/25 p-3">
-            <h2 className="mb-2 px-1 text-sm font-bold text-emerald-200/80">
-              🌱 Seeds
-            </h2>
-            <div className="grid grid-cols-2 gap-2">
+      {/* Floating right panels */}
+      <aside className="absolute right-3 top-20 z-20 flex max-h-[calc(100vh-6rem)] w-[19rem] flex-col gap-3 overflow-y-auto pb-3">
+        {/* Seeds */}
+        <div className="rounded-2xl bg-black/45 p-3 ring-1 ring-white/10 backdrop-blur">
+          <h2 className="mb-2 px-1 text-sm font-bold text-emerald-200/80">
+            🌱 Seeds
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
               {CROP_LIST.map((c) => {
                 const locked = level < c.unlockLevel;
                 const selected = state.selectedCrop === c.id;
@@ -269,9 +265,9 @@ export default function Game() {
             </div>
           </div>
 
-          {/* Market / stash */}
-          <div className="rounded-2xl border border-emerald-900/60 bg-black/25 p-3">
-            <div className="mb-2 flex items-center justify-between px-1">
+        {/* Market / stash */}
+        <div className="rounded-2xl bg-black/45 p-3 ring-1 ring-white/10 backdrop-blur">
+          <div className="mb-2 flex items-center justify-between px-1">
               <h2 className="text-sm font-bold text-emerald-200/80">
                 🏪 Market
               </h2>
@@ -321,9 +317,8 @@ export default function Game() {
                 })}
               </ul>
             )}
-          </div>
-        </aside>
-      </div>
+        </div>
+      </aside>
     </main>
   );
 }
