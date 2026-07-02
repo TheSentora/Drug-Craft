@@ -4,8 +4,10 @@ A Hay Day–style farming game. Plant, grow and sell your crops to build a farmi
 
 Single-player, no backend. Progress is saved automatically to your browser (`localStorage`), and crops keep growing in real time even while the tab is closed.
 
-The farm is a pannable **isometric island** — a 5×5 expandable field surrounded
-by grass, a pond, a farmhouse, a barn and trees.
+The farm is a pannable **isometric island in the sea** — a fenced, expandable
+5×5 field with a farmhouse, barn, windmill, pond, dirt path, trees, flowers,
+wandering chickens and butterflies. Textured tiles, soft shadows, animated
+water, drifting cloud shadows and particle effects bring it to life.
 
 ## How to play
 
@@ -14,14 +16,19 @@ by grass, a pond, a farmhouse, a barn and trees.
 - **Grow** — each crop ripens over real time (a countdown shows on the plot).
 - **Harvest** — tap a ripe plot (or hit *Harvest all*) to add the crop to your stash.
 - **Sell** — sell from the Market panel for cash.
+- **Orders** — deliver customer orders from the Orders board for bonus cash + XP
+  (reroll ones you don't like).
 - **Expand** — tap a locked plot to clear new land (price rises each time).
-- **Level up** — harvesting earns XP; new crops unlock as you level up.
+- **Level up** — harvesting and orders earn XP; new crops unlock as you level up.
+- **Sound** — plant/harvest/sell/level-up feedback, mutable from the top bar.
 
 ## Tech
 
 - Next.js 16 (App Router) + React 19
 - TypeScript, Tailwind CSS v4
-- HTML5 Canvas isometric renderer (camera pan/zoom, depth-sorted draw)
+- HTML5 Canvas isometric renderer (camera pan/zoom, depth-sorted draw,
+  baked texture tiles, particles, ambient animation)
+- WebAudio synth for sound effects (no audio files)
 
 ## Run
 
@@ -39,10 +46,11 @@ app/
     types.ts      shared types
     crops.ts      crop catalog (cost, grow time, price, unlock level)
     levels.ts     XP ⇄ level curve
-    world.ts      isometric projection + island layout (field, pond, decor)
-    store.ts      game state, actions, localStorage persistence
+    world.ts      isometric projection + island layout (field, pond, path, fences, decor)
+    store.ts      game state, actions, orders, localStorage persistence
     sprites.ts    per-crop SVG icon lookup
-    renderer.ts   isometric world renderer (camera, depth sort, hit-testing)
+    sfx.ts        WebAudio sound effects + mute preference
+    renderer.ts   isometric world renderer (camera, depth sort, textures, fx)
   components/
     Game.tsx      React HUD (top bar, seeds, market) + canvas mount
   page.tsx        mounts the game

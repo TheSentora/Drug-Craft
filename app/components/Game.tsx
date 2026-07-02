@@ -9,6 +9,7 @@ import {
 import { CROP_LIST, CROPS } from "../game/crops";
 import { levelForXp, levelProgress } from "../game/levels";
 import { FarmRenderer } from "../game/renderer";
+import { sfx } from "../game/sfx";
 import { gameStore } from "../game/store";
 import { CropId } from "../game/types";
 
@@ -88,6 +89,7 @@ function FarmCanvas() {
 
 export default function Game() {
   const [mounted, setMounted] = useState(false);
+  const [muted, setMuted] = useState(false);
 
   // Subscribe to the store. The version number is a stable primitive snapshot.
   useSyncExternalStore(
@@ -98,13 +100,11 @@ export default function Game() {
 
   useEffect(() => {
     gameStore.init();
+    setMuted(sfx.isMuted());
     setMounted(true);
 
     const onLeave = () => {
-      // Best-effort save when tab is hidden / closed.
-      try {
-        window.dispatchEvent(new Event("drugcraft:save"));
-      } catch {}
+      if (document.visibilityState === "hidden") gameStore.flush();
     };
     document.addEventListener("visibilitychange", onLeave);
     return () => document.removeEventListener("visibilitychange", onLeave);
@@ -177,6 +177,14 @@ export default function Game() {
           </div>
 
           <button
+            onClick={() => setMuted(sfx.toggle())}
+            className="rounded-full px-2 py-2 text-base transition hover:bg-white/10"
+            title={muted ? "Unmute sounds" : "Mute sounds"}
+          >
+            {muted ? "🔇" : "🔊"}
+          </button>
+
+          <button
             onClick={() => {
               if (confirm("Reset your farm and start over?")) gameStore.reset();
             }}
@@ -198,6 +206,76 @@ export default function Game() {
           </div>
         </div>
       )}
+
+      {/* Orders board */}
+      <aside className="absolute left-3 top-20 z-20 flex max-h-[calc(100vh-10rem)] w-72 flex-col gap-2 overflow-y-auto">
+        <div className="rounded-2xl bg-black/45 p-3 ring-1 ring-white/10 backdrop-blur">
+          <h2 className="mb-2 px-1 text-sm font-bold text-emerald-200/80">
+            📦 Orders
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {state.orders.map((order) => {
+              const deliverable = gameStore.canDeliver(order);
+              return (
+                <li
+                  key={order.id}
+                  className="rounded-xl bg-black/25 p-2.5 ring-1 ring-white/5"
+                >
+                  <ul className="mb-2 flex flex-col gap-1">
+                    {order.items.map((it) => {
+                      const c = CROPS[it.crop];
+                      const have = state.inventory[it.crop] ?? 0;
+                      const ok = have >= it.qty;
+                      return (
+                        <li
+                          key={it.crop}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <CropIcon
+                              id={it.crop}
+                              emoji={c.emoji}
+                              className="h-5 w-5 object-contain"
+                            />
+                            <span className="font-semibold">{c.name}</span>
+                          </span>
+                          <span
+                            className={`font-bold ${ok ? "text-emerald-300" : "text-rose-300"}`}
+                          >
+                            {Math.min(have, it.qty)}/{it.qty}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-300">
+                      💵 ${order.cash.toLocaleString()}{" "}
+                      <span className="text-emerald-300">+{order.xp} XP</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <button
+                        onClick={() => gameStore.rerollOrder(order.id)}
+                        title="Ask for a different order"
+                        className="rounded-md px-1.5 py-1 text-[11px] text-emerald-300/50 transition hover:bg-white/10 hover:text-emerald-200"
+                      >
+                        ↻
+                      </button>
+                      <button
+                        onClick={() => gameStore.deliver(order.id)}
+                        disabled={!deliverable}
+                        className="rounded-lg bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-black shadow transition enabled:hover:bg-amber-400 disabled:opacity-35"
+                      >
+                        Deliver
+                      </button>
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </aside>
 
       {/* Bottom-left: harvest + help */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex items-center gap-3">

@@ -33,6 +33,19 @@ export interface Plot {
 
 export type MessageKind = "info" | "good" | "bad";
 
+export interface OrderItem {
+  crop: CropId;
+  qty: number;
+}
+
+/** A customer order: deliver the items, earn bonus cash + XP. */
+export interface Order {
+  id: number;
+  items: OrderItem[];
+  cash: number;
+  xp: number;
+}
+
 export interface SaveData {
   v: number;
   cash: number;
@@ -41,4 +54,5 @@ export interface SaveData {
   inventory: Partial<Record<CropId, number>>;
   selectedCrop: CropId;
   lastSeen: number;
+  orders?: Order[];
 }

@@ -51,6 +51,39 @@ export function isPond(x: number, y: number): boolean {
   return POND.has(`${x},${y}`);
 }
 
+/** Dirt path from the farmhouse to the field gate. */
+const PATH = new Set(["-2,5", "-1,5", "-1,4"]);
+export function isPath(x: number, y: number): boolean {
+  return PATH.has(`${x},${y}`);
+}
+
+export type FenceSide = "N" | "W" | "S" | "E";
+export interface FenceSeg {
+  x: number;
+  y: number;
+  side: FenceSide;
+}
+
+/** Fence around the field perimeter, with a gate at the path entrance. */
+export function fenceSegments(): FenceSeg[] {
+  const segs: FenceSeg[] = [];
+  for (let x = FIELD_OX; x < FIELD_OX + FIELD_W; x++) {
+    segs.push({ x, y: FIELD_OY, side: "N" });
+    segs.push({ x, y: FIELD_OY + FIELD_H - 1, side: "S" });
+  }
+  for (let y = FIELD_OY; y < FIELD_OY + FIELD_H; y++) {
+    segs.push({ x: FIELD_OX, y, side: "W" });
+    segs.push({ x: FIELD_OX + FIELD_W - 1, y, side: "E" });
+  }
+  // Gate where the path meets the field.
+  return segs.filter(
+    (s) => !(s.side === "W" && s.x === FIELD_OX && s.y === FIELD_OY + FIELD_H - 1),
+  );
+}
+
+/** Area (tile-space rect) where chickens wander, south of the field. */
+export const CHICKEN_ZONE = { minX: -1, maxX: 4.5, minY: 5, maxY: 6.5 };
+
 export function isIsland(x: number, y: number): boolean {
   return (
     x >= ISLAND_MIN_X &&
@@ -60,7 +93,13 @@ export function isIsland(x: number, y: number): boolean {
   );
 }
 
-export type DecorType = "tree" | "house" | "barn";
+export type DecorType =
+  | "tree"
+  | "house"
+  | "barn"
+  | "windmill"
+  | "rock"
+  | "flower";
 export interface Decor {
   type: DecorType;
   x: number;
@@ -70,6 +109,14 @@ export interface Decor {
 export const DECOR: Decor[] = [
   { type: "house", x: -3, y: 5 },
   { type: "barn", x: -3, y: 2 },
+  { type: "windmill", x: 5, y: -1 },
+  { type: "rock", x: -2, y: -2 },
+  { type: "rock", x: 6, y: 4 },
+  { type: "flower", x: 2, y: 5 },
+  { type: "flower", x: 0, y: 6 },
+  { type: "flower", x: 5, y: 5 },
+  { type: "flower", x: -2, y: 3 },
+  { type: "flower", x: 6, y: 0 },
   // trees around the perimeter (kept off the field & pond)
   { type: "tree", x: -3, y: -3 },
   { type: "tree", x: -1, y: -3 },
