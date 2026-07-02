@@ -20,9 +20,10 @@ import {
   TILE_H,
   TILE_THICK,
   TILE_W,
+  WORLD_PAN,
+  farmDistance,
   fenceSegments,
   isFieldTile,
-  isIsland,
   isPath,
   isPond,
   panDelta,
@@ -154,9 +155,9 @@ export class FarmRenderer {
   private viewH = 0;
   private userAdjusted = false;
   private ro: ResizeObserver | null = null;
+  private hiddenTimer: ReturnType<typeof setTimeout> | null = null;
 
   private cam: Camera = { lookX: FIELD_CENTER.x, lookY: FIELD_CENTER.y, zoom: 1 };
-  private islandTiles: { x: number; y: number }[] = [];
   private fences: FenceSeg[] = fenceSegments();
   private tileSprites = new Map<TileKind, HTMLCanvasElement>();
 
@@ -186,13 +187,6 @@ export class FarmRenderer {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2D canvas context unavailable");
     this.ctx = ctx;
-
-    for (let y = ISLAND_MIN_Y; y <= ISLAND_MAX_Y; y++) {
-      for (let x = ISLAND_MIN_X; x <= ISLAND_MAX_X; x++) {
-        this.islandTiles.push({ x, y });
-      }
-    }
-    this.islandTiles.sort((a, b) => a.x + a.y - (b.x + b.y) || a.x - b.x);
 
     // Chickens.
     for (let i = 0; i < 3; i++) {
@@ -241,11 +235,14 @@ export class FarmRenderer {
   start() {
     this.resize();
     this.lastT = performance.now();
-    this.raf = requestAnimationFrame(this.loop);
+    // Run the first tick directly — rAF never fires in hidden tabs, and the
+    // loop schedules its own next tick (rAF when visible, timer when hidden).
+    this.loop();
   }
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    if (this.hiddenTimer) clearTimeout(this.hiddenTimer);
     this.canvas.removeEventListener("pointerdown", this.onDown);
     this.canvas.removeEventListener("pointermove", this.onMove);
     this.canvas.removeEventListener("pointerup", this.onUp);
@@ -330,8 +327,16 @@ export class FarmRenderer {
         this.userAdjusted = true;
       }
       const d = panDelta(dx, dy, { ...this.cam, zoom: this.startZoom });
-      this.cam.lookX = this.clampLook(this.startLookX + d.dLookX, ISLAND_MIN_X, ISLAND_MAX_X);
-      this.cam.lookY = this.clampLook(this.startLookY + d.dLookY, ISLAND_MIN_Y, ISLAND_MAX_Y);
+      this.cam.lookX = this.clampLook(
+        this.startLookX + d.dLookX,
+        ISLAND_MIN_X - WORLD_PAN,
+        ISLAND_MAX_X + WORLD_PAN,
+      );
+      this.cam.lookY = this.clampLook(
+        this.startLookY + d.dLookY,
+        ISLAND_MIN_Y - WORLD_PAN,
+        ISLAND_MAX_Y + WORLD_PAN,
+      );
       this.canvas.style.cursor = "grabbing";
     } else {
       const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
@@ -545,9 +550,17 @@ export class FarmRenderer {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.lastT) / 1000);
     this.lastT = now;
+    // Recover from a zero-size initial layout (e.g. hidden tab at mount).
+    if (this.cssW < 2 || this.cssH < 2) this.resize();
     this.update(now, dt);
     this.draw(now);
-    this.raf = requestAnimationFrame(this.loop);
+    // rAF is paused in hidden tabs; fall back to a slow timer there so the
+    // world is already fresh the instant the tab becomes visible again.
+    if (typeof document !== "undefined" && document.hidden) {
+      this.hiddenTimer = setTimeout(this.loop, 250);
+    } else {
+      this.raf = requestAnimationFrame(this.loop);
+    }
   }
 
   private update(now: number, dt: number) {
@@ -628,27 +641,56 @@ export class FarmRenderer {
     const w = this.cssW;
     const h = this.cssH;
 
-    // Ocean fills the whole screen.
-    const sea = ctx.createLinearGradient(0, 0, 0, h);
-    sea.addColorStop(0, "#2f9bc9");
-    sea.addColorStop(1, "#1b6e9b");
-    ctx.fillStyle = sea;
+    // Land fills the whole screen — base grass color under the tiles so no
+    // seams or void ever show.
+    ctx.fillStyle = "#4c9c3c";
     ctx.fillRect(0, 0, w, h);
-    this.drawWaves(w, h, now);
-    this.drawIslandBase();
 
     const state = gameStore.getState();
     const timeNow = Date.now();
     const unlockedCount = state.plots.filter((p) => p.unlocked).length;
     const nextPrice = plotPrice(unlockedCount);
 
-    // Ground.
-    for (const t of this.islandTiles) {
-      this.drawGround(t.x, t.y, state, timeNow, nextPrice, now);
+    // Visible tile range from the viewport corners (a = x−y, b = x+y).
+    const corners = [
+      screenToTile(0, 0, this.cam, this.viewW, this.viewH),
+      screenToTile(w, 0, this.cam, this.viewW, this.viewH),
+      screenToTile(0, h, this.cam, this.viewW, this.viewH),
+      screenToTile(w, h, this.cam, this.viewW, this.viewH),
+    ];
+    const aVals = corners.map((c) => c.x - c.y);
+    const bVals = corners.map((c) => c.x + c.y);
+    const aMin = Math.floor(Math.min(...aVals)) - 2;
+    const aMax = Math.ceil(Math.max(...aVals)) + 2;
+    const bMin = Math.floor(Math.min(...bVals)) - 2;
+    const bMax = Math.ceil(Math.max(...bVals)) + 3;
+
+    // Ground pass (back to front) + procedural countryside collection.
+    const objects: SceneObject[] = [];
+    for (let b = bMin; b <= bMax; b++) {
+      for (let x = Math.ceil((aMin + b) / 2); x <= Math.floor((aMax + b) / 2); x++) {
+        const y = b - x;
+        this.drawGround(x, y, state, timeNow, nextPrice, now);
+
+        // Countryside: strays near the farm, groves further out, deep forest
+        // at the horizon — all deterministic from the tile hash.
+        const d = farmDistance(x, y);
+        if (d > 0) {
+          const hsh = tileHash(x, y);
+          const tree =
+            d >= 6 ? hsh % 4 !== 0 : d >= 3 ? hsh % 5 === 0 : hsh % 11 === 0;
+          if (tree) {
+            objects.push({ depth: x + y, x, y, kind: "tree" });
+          } else if (hsh % 17 === 3) {
+            objects.push({ depth: x + y, x, y, kind: "flower" });
+          } else if (hsh % 29 === 7) {
+            objects.push({ depth: x + y, x, y, kind: "rock" });
+          }
+        }
+      }
     }
 
-    // Tall objects, depth sorted.
-    const objects: SceneObject[] = [];
+    // Farm decor + fences + chickens + crops, depth sorted with the rest.
     for (const d of DECOR) objects.push({ depth: d.x + d.y, x: d.x, y: d.y, kind: d.type });
     for (const f of this.fences) {
       const bias = f.side === "N" || f.side === "W" ? -0.45 : 0.45;
@@ -712,69 +754,6 @@ export class FarmRenderer {
 
   // ---- Environment -----------------------------------------------------------
 
-  private drawWaves(w: number, h: number, now: number) {
-    const { ctx } = this;
-    ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.lineWidth = 2;
-    const drift = (now / 1000) * 9;
-    for (let i = 0; i < 110; i++) {
-      const x = (i * 167 + drift) % (w + 60) - 30;
-      const y = (i * 97 + Math.sin(now / 1400 + i) * 4) % (h + 40);
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.quadraticCurveTo(x + 5, y - 4, x + 11, y);
-      ctx.quadraticCurveTo(x + 17, y + 4, x + 23, y);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  private islandOuterCorners(): Record<"top" | "right" | "bottom" | "left", [number, number]> {
-    const hw = (TILE_W / 2) * this.cam.zoom;
-    const hh = (TILE_H / 2) * this.cam.zoom;
-    const t = TILE_THICK * this.cam.zoom;
-    const ts = (x: number, y: number) => tileToScreen(x, y, this.cam, this.viewW, this.viewH);
-    const top = ts(ISLAND_MIN_X, ISLAND_MIN_Y);
-    const right = ts(ISLAND_MAX_X, ISLAND_MIN_Y);
-    const bottom = ts(ISLAND_MAX_X, ISLAND_MAX_Y);
-    const left = ts(ISLAND_MIN_X, ISLAND_MAX_Y);
-    return {
-      top: [top[0], top[1] - hh],
-      right: [right[0] + hw, right[1]],
-      bottom: [bottom[0], bottom[1] + hh + t],
-      left: [left[0] - hw, left[1]],
-    };
-  }
-
-  private drawIslandBase() {
-    const { ctx } = this;
-    const c = this.islandOuterCorners();
-    const cx = (c.top[0] + c.bottom[0]) / 2;
-    const cy = (c.left[1] + c.right[1]) / 2;
-    const z = this.cam.zoom;
-
-    const expand = (p: [number, number], by: number): [number, number] => {
-      const dx = p[0] - cx;
-      const dy = p[1] - cy;
-      const len = Math.hypot(dx, dy) || 1;
-      return [p[0] + (dx / len) * by, p[1] + (dy / len) * by];
-    };
-    const fillDiamond = (by: number, color: string) => {
-      const pts = [expand(c.top, by), expand(c.right, by), expand(c.bottom, by), expand(c.left, by)];
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
-    };
-
-    fillDiamond(22 * z, "rgba(150,226,238,0.45)");
-    fillDiamond(9 * z, "#e7d29a");
-    fillDiamond(4 * z, "#dcc488");
-  }
-
   private drawCloudShadows(w: number, h: number) {
     const { ctx } = this;
     ctx.save();
@@ -812,7 +791,6 @@ export class FarmRenderer {
     nextPrice: number,
     animNow: number,
   ) {
-    if (!isIsland(tx, ty)) return;
     const { ctx } = this;
     const [sx, sy] = tileToScreen(tx, ty, this.cam, this.viewW, this.viewH);
     const z = this.cam.zoom;

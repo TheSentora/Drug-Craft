@@ -145,8 +145,21 @@ export interface Camera {
   zoom: number;
 }
 
-export const MIN_ZOOM = 0.5;
+export const MIN_ZOOM = 0.65;
 export const MAX_ZOOM = 3.6;
+
+/** How far (in tiles) the camera may roam beyond the farm bounds. */
+export const WORLD_PAN = 16;
+
+/**
+ * Chebyshev distance from a tile to the farm area (0 = inside the farm
+ * grounds). Drives the procedural countryside: strays → groves → deep forest.
+ */
+export function farmDistance(x: number, y: number): number {
+  const dx = x < ISLAND_MIN_X ? ISLAND_MIN_X - x : x > ISLAND_MAX_X ? x - ISLAND_MAX_X : 0;
+  const dy = y < ISLAND_MIN_Y ? ISLAND_MIN_Y - y : y > ISLAND_MAX_Y ? y - ISLAND_MAX_Y : 0;
+  return Math.max(dx, dy);
+}
 
 export function tileToScreen(
   tx: number,
