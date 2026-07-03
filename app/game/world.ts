@@ -99,7 +99,8 @@ export type DecorType =
   | "barn"
   | "windmill"
   | "rock"
-  | "flower";
+  | "flower"
+  | "lab";
 export interface Decor {
   type: DecorType;
   x: number;
@@ -109,6 +110,7 @@ export interface Decor {
 export const DECOR: Decor[] = [
   { type: "house", x: -3, y: 5 },
   { type: "barn", x: -3, y: 2 },
+  { type: "lab", x: 6, y: 2 },
   { type: "windmill", x: 5, y: -1 },
   { type: "rock", x: -2, y: -2 },
   { type: "rock", x: 6, y: 4 },

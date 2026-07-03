@@ -86,6 +86,22 @@ function getCropSprite(id: CropId): CropSprite | null {
   return entry;
 }
 
+// Standalone building artwork (single transparent PNG).
+let labImg: HTMLImageElement | null = null;
+let labReady = false;
+function getLabImg(): HTMLImageElement | null {
+  if (typeof window === "undefined") return null;
+  if (!labImg) {
+    const img = new Image();
+    img.onload = () => {
+      labReady = true;
+    };
+    img.src = "/sprites/lab.png";
+    labImg = img;
+  }
+  return labImg;
+}
+
 // Per-stage artwork (e.g. cannabis1/2/3): swapped in by growth progress.
 interface StageSprite {
   img: HTMLImageElement;
@@ -756,6 +772,9 @@ export class FarmRenderer {
         case "windmill":
           this.drawWindmill(sx, sy, now);
           break;
+        case "lab":
+          this.drawLab(sx, sy);
+          break;
         case "rock":
           this.drawRock(sx, sy);
           break;
@@ -1249,6 +1268,19 @@ export class FarmRenderer {
     ctx.beginPath();
     ctx.arc(hub[0], hub[1], 2.2 * z, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  private drawLab(sx: number, sy: number) {
+    const { ctx } = this;
+    const z = this.cam.zoom;
+    const w = 90 * z;
+    const h = w * (644 / 807);
+    this.shadow(sx, sy + 3 * z, w * 0.46, 9 * z, 0.28);
+    const img = getLabImg();
+    if (img && labReady) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(img, sx - w / 2, sy + 7 * z - h, w, h);
+    }
   }
 
   private drawRock(sx: number, sy: number) {
