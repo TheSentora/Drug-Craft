@@ -33,6 +33,36 @@ export interface Plot {
 
 export type MessageKind = "info" | "good" | "bad";
 
+// ---- Lab / production -----------------------------------------------------
+
+export type ProductId =
+  // extracted intermediates
+  | "cannabis_buds"
+  | "coca_leaves"
+  | "tobacco_leaves"
+  | "morphine"
+  | "codeine"
+  // refined products
+  | "dried_cannabis"
+  | "dried_tobacco"
+  | "cocaine"
+  | "heroin"
+  // buyable reagents
+  | "sulfuric_acid"
+  | "gasoline"
+  | "acetic_anhydride";
+
+export type StationId = "incubator" | "cocaine" | "synthesis";
+
+/** A running processing job at a lab station. */
+export interface LabJob {
+  id: number;
+  station: StationId;
+  recipeId: string;
+  /** Epoch ms when the job started. */
+  startedAt: number;
+}
+
 export interface OrderItem {
   crop: CropId;
   qty: number;
@@ -55,4 +85,6 @@ export interface SaveData {
   selectedCrop: CropId;
   lastSeen: number;
   orders?: Order[];
+  products?: Partial<Record<ProductId, number>>;
+  jobs?: LabJob[];
 }

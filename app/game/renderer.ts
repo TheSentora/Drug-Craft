@@ -192,6 +192,9 @@ export class FarmRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private onTileClick: (index: number) => void;
+  /** Called when the player taps the lab building. */
+  onLabClick: (() => void) | null = null;
+  private labTile: { x: number; y: number } | null = null;
   private raf = 0;
   private cssW = 0;
   private cssH = 0;
@@ -231,6 +234,9 @@ export class FarmRenderer {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2D canvas context unavailable");
     this.ctx = ctx;
+
+    const lab = DECOR.find((d) => d.type === "lab");
+    if (lab) this.labTile = { x: lab.x, y: lab.y };
 
     // Chickens.
     for (let i = 0; i < 3; i++) {
@@ -386,8 +392,21 @@ export class FarmRenderer {
       const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
       this.hover = { x: Math.round(t.x), y: Math.round(t.y) };
       const idx = plotIndexAt(this.hover.x, this.hover.y);
-      this.canvas.style.cursor = idx >= 0 ? "pointer" : "grab";
+      this.canvas.style.cursor =
+        idx >= 0 || this.labHit(x, y) ? "pointer" : "grab";
     }
+  }
+
+  /** Is the screen point inside the lab building's drawn footprint? */
+  private labHit(px: number, py: number): boolean {
+    if (!this.labTile) return false;
+    const [sx, sy] = tileToScreen(this.labTile.x, this.labTile.y, this.cam, this.viewW, this.viewH);
+    const z = this.cam.zoom;
+    const w = 90 * z;
+    const h = w * (644 / 807);
+    const top = sy + 7 * z - h;
+    const bottom = sy + 7 * z;
+    return px >= sx - w / 2 && px <= sx + w / 2 && py >= top && py <= bottom;
   }
 
   private onUp(e: PointerEvent) {
@@ -399,6 +418,10 @@ export class FarmRenderer {
     } catch {}
     if (this.moved) return;
     const [x, y] = this.localPoint(e);
+    if (this.labHit(x, y)) {
+      this.onLabClick?.();
+      return;
+    }
     const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
     const idx = plotIndexAt(Math.round(t.x), Math.round(t.y));
     if (idx >= 0) this.onTileClick(idx);
@@ -1275,12 +1298,41 @@ export class FarmRenderer {
     const z = this.cam.zoom;
     const w = 90 * z;
     const h = w * (644 / 807);
+    const now = performance.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 600);
+
+    // Soft glow so it reads as interactive.
+    ctx.save();
+    const glow = ctx.createRadialGradient(sx, sy - h * 0.3, 2, sx, sy - h * 0.3, w * 0.7);
+    glow.addColorStop(0, `rgba(120,255,180,${0.12 + 0.08 * pulse})`);
+    glow.addColorStop(1, "rgba(120,255,180,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(sx - w, sy - h - 10 * z, w * 2, h + 20 * z);
+    ctx.restore();
+
     this.shadow(sx, sy + 3 * z, w * 0.46, 9 * z, 0.28);
     const img = getLabImg();
     if (img && labReady) {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(img, sx - w / 2, sy + 7 * z - h, w, h);
     }
+
+    // Floating label.
+    const label = "🧪 LAB";
+    ctx.font = `800 ${11 * z}px ${UI_FONT}`;
+    const tw = ctx.measureText(label).width + 12 * z;
+    const ly = sy - h - 6 * z;
+    ctx.beginPath();
+    ctx.roundRect(sx - tw / 2, ly - 13 * z, tw, 16 * z, 8 * z);
+    ctx.fillStyle = "rgba(16,40,28,0.82)";
+    ctx.fill();
+    ctx.strokeStyle = `rgba(120,255,180,${0.4 + 0.4 * pulse})`;
+    ctx.lineWidth = 1.4 * z;
+    ctx.stroke();
+    ctx.fillStyle = "#d9f9e6";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, sx, ly - 5 * z);
   }
 
   private drawRock(sx: number, sy: number) {

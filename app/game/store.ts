@@ -2,9 +2,42 @@
 
 import { CROPS, CROP_LIST } from "./crops";
 import { levelForXp } from "./levels";
+import {
+  PRODUCTS,
+  Recipe,
+  extractionForCrop,
+  recipeById,
+  recipeDuration,
+} from "./production";
 import { sfx } from "./sfx";
-import { CropId, MessageKind, Order, Plot, SaveData } from "./types";
+import {
+  CropId,
+  LabJob,
+  MessageKind,
+  Order,
+  Plot,
+  ProductId,
+  SaveData,
+  StationId,
+} from "./types";
 import { FIELD_H, FIELD_W } from "./world";
+
+/** How many jobs can run at once per station. */
+export const STATION_SLOTS: Record<StationId, number> = {
+  incubator: 4,
+  cocaine: 3,
+  synthesis: 3,
+};
+
+export function jobProgress(job: LabJob, now: number): number {
+  const r = recipeById(job.recipeId);
+  if (!r) return 1;
+  return Math.min(1, (now - job.startedAt) / recipeDuration(r));
+}
+
+export function jobReady(job: LabJob, now: number): boolean {
+  return jobProgress(job, now) >= 1;
+}
 
 // ---- Board / economy constants -------------------------------------------
 
@@ -75,6 +108,8 @@ export interface GameState {
   xp: number;
   plots: Plot[];
   inventory: Partial<Record<CropId, number>>;
+  products: Partial<Record<ProductId, number>>;
+  jobs: LabJob[];
   selectedCrop: CropId;
   orders: Order[];
   message: GameMessage | null;
@@ -91,11 +126,15 @@ function defaultState(): GameState {
     xp: 0,
     plots,
     inventory: {},
+    products: {},
+    jobs: [],
     selectedCrop: "tobacco",
     orders: [],
     message: null,
   };
 }
+
+let jobSeq = 1;
 
 let state: GameState = defaultState();
 let version = 0;
@@ -157,6 +196,8 @@ function save() {
     selectedCrop: state.selectedCrop,
     lastSeen: Date.now(),
     orders: state.orders,
+    products: state.products,
+    jobs: state.jobs,
   };
   try {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -190,6 +231,24 @@ function validOrder(o: unknown): o is Order {
     typeof ord.cash === "number" &&
     typeof ord.xp === "number"
   );
+}
+
+function validJob(j: unknown): j is LabJob {
+  const job = j as LabJob;
+  return (
+    !!job &&
+    typeof job.id === "number" &&
+    typeof job.startedAt === "number" &&
+    !!recipeById(job.recipeId)
+  );
+}
+
+function addProduct(id: ProductId, n: number) {
+  state.products[id] = (state.products[id] ?? 0) + n;
+}
+
+function haveProduct(id: ProductId): number {
+  return state.products[id] ?? 0;
 }
 
 // ---- Public store ---------------------------------------------------------
@@ -237,24 +296,29 @@ export const gameStore = {
             }
           : { unlocked: i < INITIAL_UNLOCKED, crop: null, plantedAt: null };
       });
+      const jobs = Array.isArray(data.jobs) ? data.jobs.filter(validJob) : [];
       state = {
         cash: Number.isFinite(data.cash) ? data.cash : START_CASH,
         xp: Number.isFinite(data.xp) ? data.xp : 0,
         plots,
         inventory: data.inventory ?? {},
+        products: data.products ?? {},
+        jobs,
         selectedCrop: CROPS[data.selectedCrop] ? data.selectedCrop : "tobacco",
         orders: Array.isArray(data.orders) ? data.orders.filter(validOrder) : [],
         message: null,
       };
       orderSeq = state.orders.reduce((m, o) => Math.max(m, o.id), 0) + 1;
+      jobSeq = state.jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
 
       const now = Date.now();
-      const readyCount = state.plots.filter((p) => isReady(p, now)).length;
-      if (readyCount > 0) {
-        setMessage(
-          `Welcome back! ${readyCount} plot${readyCount > 1 ? "s" : ""} ready to harvest.`,
-          "good",
-        );
+      const readyPlots = state.plots.filter((p) => isReady(p, now)).length;
+      const readyJobs = state.jobs.filter((j) => jobReady(j, now)).length;
+      if (readyPlots > 0 || readyJobs > 0) {
+        const bits: string[] = [];
+        if (readyPlots > 0) bits.push(`${readyPlots} plot${readyPlots > 1 ? "s" : ""}`);
+        if (readyJobs > 0) bits.push(`${readyJobs} batch${readyJobs > 1 ? "es" : ""}`);
+        setMessage(`Welcome back! ${bits.join(" & ")} ready to collect.`, "good");
       }
     }
     // Top up the orders board.
@@ -421,10 +485,163 @@ export const gameStore = {
     changed();
   },
 
+  // ---- Lab: extraction, production, reagents, product sales --------------
+
+  /** Instant: turn one harvested crop into its extracted intermediate(s). */
+  extract(cropId: CropId) {
+    const ex = extractionForCrop(cropId);
+    if (!ex) return;
+    if ((state.inventory[cropId] ?? 0) < 1) {
+      setMessage(`No ${CROPS[cropId].name} to extract`, "bad");
+      return;
+    }
+    state.inventory[cropId] = (state.inventory[cropId] ?? 0) - 1;
+    for (const o of ex.outputs) addProduct(o.product, o.qty);
+    sfx.play("harvest");
+    const label = ex.outputs
+      .map((o) => `${o.qty} ${PRODUCTS[o.product].name}`)
+      .join(" + ");
+    setMessage(`Extracted ${label}`, "good");
+    addXp(ex.xp);
+    changed();
+  },
+
+  extractAll(cropId: CropId) {
+    const ex = extractionForCrop(cropId);
+    if (!ex) return;
+    let n = state.inventory[cropId] ?? 0;
+    if (n < 1) {
+      setMessage(`No ${CROPS[cropId].name} to extract`, "bad");
+      return;
+    }
+    let xp = 0;
+    while (n > 0) {
+      n--;
+      for (const o of ex.outputs) addProduct(o.product, o.qty);
+      xp += ex.xp;
+    }
+    state.inventory[cropId] = 0;
+    sfx.play("harvest");
+    setMessage(`Extracted all ${CROPS[cropId].name}`, "good");
+    addXp(xp);
+    changed();
+  },
+
+  buyReagent(id: ProductId, qty = 1) {
+    const def = PRODUCTS[id];
+    if (!def || def.kind !== "reagent" || !def.buyPrice) return;
+    const cost = def.buyPrice * qty;
+    if (state.cash < cost) {
+      setMessage(`Need $${cost} for ${def.name}`, "bad");
+      return;
+    }
+    state.cash -= cost;
+    addProduct(id, qty);
+    sfx.play("sell");
+    changed();
+  },
+
+  jobsAt(station: StationId): LabJob[] {
+    return state.jobs.filter((j) => j.station === station);
+  },
+
+  canStart(recipe: Recipe): boolean {
+    if (levelForXp(state.xp) < recipe.unlockLevel) return false;
+    if (this.jobsAt(recipe.station).length >= STATION_SLOTS[recipe.station]) {
+      return false;
+    }
+    return recipe.inputs.every((i) => haveProduct(i.product) >= i.qty);
+  },
+
+  startJob(recipeId: string) {
+    const r = recipeById(recipeId);
+    if (!r) return;
+    if (levelForXp(state.xp) < r.unlockLevel) {
+      setMessage(`Unlocks at level ${r.unlockLevel}`, "bad");
+      return;
+    }
+    if (this.jobsAt(r.station).length >= STATION_SLOTS[r.station]) {
+      setMessage("All slots busy", "bad");
+      return;
+    }
+    const missing = r.inputs.find((i) => haveProduct(i.product) < i.qty);
+    if (missing) {
+      setMessage(`Need ${missing.qty} ${PRODUCTS[missing.product].name}`, "bad");
+      return;
+    }
+    for (const i of r.inputs) state.products[i.product] = haveProduct(i.product) - i.qty;
+    state.jobs.push({
+      id: jobSeq++,
+      station: r.station,
+      recipeId: r.id,
+      startedAt: Date.now(),
+    });
+    sfx.play("plant");
+    setMessage(`${r.name} started`, "info");
+    changed();
+  },
+
+  collectJob(jobId: number) {
+    const idx = state.jobs.findIndex((j) => j.id === jobId);
+    if (idx < 0) return;
+    const job = state.jobs[idx];
+    if (!jobReady(job, Date.now())) return;
+    const r = recipeById(job.recipeId);
+    if (!r) {
+      state.jobs.splice(idx, 1);
+      changed();
+      return;
+    }
+    addProduct(r.output.product, r.output.qty);
+    state.jobs.splice(idx, 1);
+    sfx.play("order");
+    setMessage(
+      `Collected ${r.output.qty} ${PRODUCTS[r.output.product].name}`,
+      "good",
+    );
+    addXp(r.xp);
+    changed();
+  },
+
+  collectAllJobs() {
+    const now = Date.now();
+    const ready = state.jobs.filter((j) => jobReady(j, now));
+    if (ready.length === 0) {
+      setMessage("Nothing finished yet", "info");
+      return;
+    }
+    let xp = 0;
+    for (const job of ready) {
+      const r = recipeById(job.recipeId);
+      if (r) {
+        addProduct(r.output.product, r.output.qty);
+        xp += r.xp;
+      }
+    }
+    state.jobs = state.jobs.filter((j) => !jobReady(j, now));
+    sfx.play("order");
+    setMessage(`Collected ${ready.length} finished batch${ready.length > 1 ? "es" : ""}`, "good");
+    addXp(xp);
+    changed();
+  },
+
+  sellProduct(id: ProductId, qty: number) {
+    const def = PRODUCTS[id];
+    if (!def || def.sellPrice <= 0) return;
+    const have = haveProduct(id);
+    const n = Math.min(qty, have);
+    if (n <= 0) return;
+    state.products[id] = have - n;
+    state.cash += def.sellPrice * n;
+    sfx.play("sell");
+    changed();
+  },
+
   reset() {
     state = defaultState();
     const level = levelForXp(0);
     while (state.orders.length < ORDER_COUNT) state.orders.push(genOrder(level));
+    jobSeq = 1;
     save();
     setMessage("Farm reset", "info");
     changed();

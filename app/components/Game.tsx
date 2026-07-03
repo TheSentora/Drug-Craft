@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import { FarmRenderer } from "../game/renderer";
 import { sfx } from "../game/sfx";
 import { gameStore } from "../game/store";
 import { CropId } from "../game/types";
+import LabScreen from "./LabScreen";
 
 function fmtGrow(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -43,7 +45,7 @@ function CropIcon({
   );
 }
 
-function FarmCanvas() {
+function FarmCanvas({ onLabClick }: { onLabClick: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<FarmRenderer | null>(null);
 
@@ -53,13 +55,14 @@ function FarmCanvas() {
     const renderer = new FarmRenderer(canvas, (i) =>
       gameStore.handlePlotClick(i),
     );
+    renderer.onLabClick = onLabClick;
     rendererRef.current = renderer;
     renderer.start();
     return () => {
       renderer.destroy();
       rendererRef.current = null;
     };
-  }, []);
+  }, [onLabClick]);
 
   const btn =
     "flex h-9 w-9 items-center justify-center rounded-lg bg-black/45 text-lg font-bold text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-black/65";
@@ -90,6 +93,8 @@ function FarmCanvas() {
 export default function Game() {
   const [mounted, setMounted] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [labOpen, setLabOpen] = useState(false);
+  const openLab = useCallback(() => setLabOpen(true), []);
 
   // Subscribe to the store. The version number is a stable primitive snapshot.
   useSyncExternalStore(
@@ -143,7 +148,7 @@ export default function Game() {
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#0c241a] text-emerald-50">
       {/* Full-screen farm world */}
-      <FarmCanvas />
+      <FarmCanvas onLabClick={openLab} />
 
       {/* Floating top bar */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3 sm:p-4">
@@ -397,6 +402,8 @@ export default function Game() {
             )}
         </div>
       </aside>
+
+      {labOpen && <LabScreen onClose={() => setLabOpen(false)} />}
     </main>
   );
 }
