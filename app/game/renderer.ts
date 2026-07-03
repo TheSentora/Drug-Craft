@@ -1,7 +1,7 @@
 "use client";
 
 import { CROPS } from "./crops";
-import { cropSpriteUrl } from "./sprites";
+import { CROP_STAGE_ART, cropSpriteUrl } from "./sprites";
 import { gameStore, isReady, plantProgress, plotPrice } from "./store";
 import { CropId } from "./types";
 import {
@@ -84,6 +84,34 @@ function getCropSprite(id: CropId): CropSprite | null {
     cropSprites.set(id, entry);
   }
   return entry;
+}
+
+// Per-stage artwork (e.g. cannabis1/2/3): swapped in by growth progress.
+interface StageSprite {
+  img: HTMLImageElement;
+  upTo: number;
+  ok: boolean;
+}
+const stageSprites = new Map<CropId, StageSprite[]>();
+function getStageSprite(id: CropId, progress: number): StageSprite | null {
+  if (typeof window === "undefined") return null;
+  const art = CROP_STAGE_ART[id];
+  if (!art) return null;
+  let stages = stageSprites.get(id);
+  if (!stages) {
+    stages = art.map((s) => {
+      const img = new Image();
+      const entry: StageSprite = { img, upTo: s.upTo, ok: false };
+      img.onload = () => {
+        entry.ok = true;
+      };
+      img.src = s.url;
+      return entry;
+    });
+    stageSprites.set(id, stages);
+  }
+  const stage = stages.find((s) => progress <= s.upTo) ?? stages[stages.length - 1];
+  return stage.ok ? stage : null;
 }
 
 type TileKind = "grassA" | "grassB" | "soilA" | "soilB" | "path" | "water";
@@ -856,8 +884,12 @@ export class FarmRenderer {
       if (plot && plot.unlocked && plot.crop == null) {
         const def = CROPS[state.selectedCrop];
         const sprite = getCropSprite(state.selectedCrop);
+        const ghostStage = getStageSprite(state.selectedCrop, 1);
         ctx.globalAlpha = 0.45;
-        if (sprite && sprite.ok) {
+        if (ghostStage) {
+          const sz = TILE_H * 1.4 * z;
+          ctx.drawImage(ghostStage.img, sx - sz / 2, sy + 4 * z - sz, sz, sz);
+        } else if (sprite && sprite.ok) {
           const sz = TILE_H * 1.4 * z;
           ctx.drawImage(
             sprite.img,
@@ -918,7 +950,11 @@ export class FarmRenderer {
       ctx.shadowColor = "rgba(120,255,140,0.9)";
       ctx.shadowBlur = pulse;
     }
-    if (sprite && sprite.ok) {
+    const stage = getStageSprite(plot.crop, p);
+    if (stage) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(stage.img, sx - size / 2, baseY - size, size, size);
+    } else if (sprite && sprite.ok) {
       const fw = sprite.img.naturalWidth / sprite.frames;
       const fh = sprite.img.naturalHeight;
       const frame = Math.min(sprite.frames - 1, Math.floor(p * sprite.frames));
