@@ -102,6 +102,22 @@ function getLabImg(): HTMLImageElement | null {
   return labImg;
 }
 
+// Second lab (may not exist yet — falls back to a drawn placeholder).
+let lab2Img: HTMLImageElement | null = null;
+let lab2Ready = false;
+function getLab2Img(): HTMLImageElement | null {
+  if (typeof window === "undefined") return null;
+  if (!lab2Img) {
+    const img = new Image();
+    img.onload = () => {
+      lab2Ready = true;
+    };
+    img.src = "/sprites/lab2.png";
+    lab2Img = img;
+  }
+  return lab2Img;
+}
+
 // Per-stage artwork (e.g. cannabis1/2/3): swapped in by growth progress.
 interface StageSprite {
   img: HTMLImageElement;
@@ -194,7 +210,10 @@ export class FarmRenderer {
   private onTileClick: (index: number) => void;
   /** Called when the player taps the lab building. */
   onLabClick: (() => void) | null = null;
+  /** Called when the player taps the Synthetic Lab building. */
+  onLab2Click: (() => void) | null = null;
   private labTile: { x: number; y: number } | null = null;
+  private lab2Tile: { x: number; y: number } | null = null;
   private raf = 0;
   private cssW = 0;
   private cssH = 0;
@@ -237,6 +256,8 @@ export class FarmRenderer {
 
     const lab = DECOR.find((d) => d.type === "lab");
     if (lab) this.labTile = { x: lab.x, y: lab.y };
+    const lab2 = DECOR.find((d) => d.type === "lab2");
+    if (lab2) this.lab2Tile = { x: lab2.x, y: lab2.y };
 
     // Chickens.
     for (let i = 0; i < 3; i++) {
@@ -392,21 +413,34 @@ export class FarmRenderer {
       const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
       this.hover = { x: Math.round(t.x), y: Math.round(t.y) };
       const idx = plotIndexAt(this.hover.x, this.hover.y);
-      this.canvas.style.cursor =
-        idx >= 0 || this.labHit(x, y) ? "pointer" : "grab";
+      const overBuilding = this.labHit(x, y) || this.lab2Hit(x, y);
+      this.canvas.style.cursor = idx >= 0 || overBuilding ? "pointer" : "grab";
     }
   }
 
-  /** Is the screen point inside the lab building's drawn footprint? */
-  private labHit(px: number, py: number): boolean {
-    if (!this.labTile) return false;
-    const [sx, sy] = tileToScreen(this.labTile.x, this.labTile.y, this.cam, this.viewW, this.viewH);
+  /** Is the screen point inside a building's drawn footprint? */
+  private buildingHit(
+    tile: { x: number; y: number } | null,
+    baseW: number,
+    px: number,
+    py: number,
+  ): boolean {
+    if (!tile) return false;
+    const [sx, sy] = tileToScreen(tile.x, tile.y, this.cam, this.viewW, this.viewH);
     const z = this.cam.zoom;
-    const w = 90 * z;
+    const w = baseW * z;
     const h = w * (644 / 807);
     const top = sy + 7 * z - h;
-    const bottom = sy + 7 * z;
+    const bottom = sy + 9 * z;
     return px >= sx - w / 2 && px <= sx + w / 2 && py >= top && py <= bottom;
+  }
+
+  private labHit(px: number, py: number): boolean {
+    return this.buildingHit(this.labTile, 90, px, py);
+  }
+
+  private lab2Hit(px: number, py: number): boolean {
+    return this.buildingHit(this.lab2Tile, 118, px, py);
   }
 
   private onUp(e: PointerEvent) {
@@ -418,6 +452,10 @@ export class FarmRenderer {
     } catch {}
     if (this.moved) return;
     const [x, y] = this.localPoint(e);
+    if (this.lab2Hit(x, y)) {
+      this.onLab2Click?.();
+      return;
+    }
     if (this.labHit(x, y)) {
       this.onLabClick?.();
       return;
@@ -797,6 +835,9 @@ export class FarmRenderer {
           break;
         case "lab":
           this.drawLab(sx, sy);
+          break;
+        case "lab2":
+          this.drawLab2(sx, sy);
           break;
         case "rock":
           this.drawRock(sx, sy);
@@ -1333,6 +1374,196 @@ export class FarmRenderer {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(label, sx, ly - 5 * z);
+  }
+
+  private drawLab2(sx: number, sy: number) {
+    const { ctx } = this;
+    const z = this.cam.zoom;
+    const w = 118 * z;
+    const h = w * (644 / 807);
+    const baseY = sy + 8 * z;
+    const unlocked = gameStore.getState().lab2Unlocked;
+    const now = performance.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 600);
+
+    if (unlocked) {
+      ctx.save();
+      const glow = ctx.createRadialGradient(sx, baseY - h * 0.4, 2, sx, baseY - h * 0.4, w * 0.8);
+      glow.addColorStop(0, `rgba(167,139,250,${0.16 + 0.1 * pulse})`);
+      glow.addColorStop(1, "rgba(167,139,250,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(sx - w, baseY - h - 14 * z, w * 2, h + 26 * z);
+      ctx.restore();
+    }
+
+    this.shadow(sx, baseY - 1 * z, w * 0.5, 11 * z, 0.32);
+
+    ctx.save();
+    if (!unlocked) ctx.filter = "grayscale(0.9) brightness(0.62)";
+    const img = getLab2Img();
+    if (img && lab2Ready) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(img, sx - w / 2, baseY - h, w, h);
+    } else {
+      this.drawSynthLabBody(sx, baseY, w, h, now);
+    }
+    ctx.restore();
+
+    if (!unlocked) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `${24 * z}px ${EMOJI_FONT}`;
+      ctx.fillText("🔒", sx, baseY - h * 0.52);
+    }
+
+    // Floating label.
+    const label = unlocked ? "⚗️ SYNTHETIC LAB" : "🔒 Lv 10 · $25,000";
+    ctx.font = `800 ${11 * z}px ${UI_FONT}`;
+    const tw = ctx.measureText(label).width + 14 * z;
+    const ly = baseY - h - 4 * z;
+    ctx.beginPath();
+    ctx.roundRect(sx - tw / 2, ly - 14 * z, tw, 17 * z, 8 * z);
+    ctx.fillStyle = "rgba(28,20,44,0.85)";
+    ctx.fill();
+    ctx.strokeStyle = unlocked
+      ? `rgba(167,139,250,${0.5 + 0.4 * pulse})`
+      : "rgba(255,210,120,0.6)";
+    ctx.lineWidth = 1.4 * z;
+    ctx.stroke();
+    ctx.fillStyle = unlocked ? "#e4d9ff" : "#ffe6a8";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, sx, ly - 5.5 * z);
+  }
+
+  /** Procedural steel synthesis-lab building (placeholder for lab2.png). */
+  private drawSynthLabBody(sx: number, baseY: number, w: number, h: number, now: number) {
+    const { ctx } = this;
+    const z = this.cam.zoom;
+    const bodyW = w * 0.66;
+    const bodyH = h * 0.6;
+    const bodyX = sx - bodyW / 2;
+    const bodyTop = baseY - bodyH;
+
+    // --- Distillation tower (left, behind) ---
+    const towX = sx - w * 0.36;
+    const towW = w * 0.19;
+    const towTop = baseY - h * 0.98;
+    const towGrad = ctx.createLinearGradient(towX, 0, towX + towW, 0);
+    towGrad.addColorStop(0, "#5b6674");
+    towGrad.addColorStop(1, "#333a44");
+    ctx.fillStyle = towGrad;
+    ctx.beginPath();
+    ctx.roundRect(towX, towTop + towW / 2, towW, baseY - (towTop + towW / 2), 3 * z);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(towX + towW / 2, towTop + towW / 2, towW / 2, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
+    ctx.lineWidth = 1.4 * z;
+    for (let i = 1; i <= 4; i++) {
+      const yy = towTop + (baseY - towTop) * (i / 5);
+      ctx.beginPath();
+      ctx.moveTo(towX, yy);
+      ctx.lineTo(towX + towW, yy);
+      ctx.stroke();
+    }
+    // blinking beacon
+    const beac = 0.5 + 0.5 * Math.sin(now / 240);
+    ctx.fillStyle = `rgba(255,90,74,${0.5 + 0.5 * beac})`;
+    ctx.beginPath();
+    ctx.arc(towX + towW / 2, towTop - 1 * z, 2.4 * z, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- Storage tank (right, behind) ---
+    const tankR = w * 0.15;
+    const tankCx = sx + w * 0.34;
+    const tankTop = baseY - tankR * 2.4;
+    const tankGrad = ctx.createLinearGradient(tankCx - tankR, 0, tankCx + tankR, 0);
+    tankGrad.addColorStop(0, "#727d8c");
+    tankGrad.addColorStop(1, "#3c434c");
+    ctx.fillStyle = tankGrad;
+    ctx.beginPath();
+    ctx.roundRect(tankCx - tankR, tankTop, tankR * 2, tankR * 2.4, tankR);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.2)";
+    ctx.lineWidth = 1.2 * z;
+    ctx.beginPath();
+    ctx.ellipse(tankCx, tankTop + tankR * 0.9, tankR, tankR * 0.35, 0, 0, Math.PI);
+    ctx.stroke();
+
+    // --- Pipes ---
+    ctx.strokeStyle = "#8b95a4";
+    ctx.lineWidth = 3.5 * z;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(towX + towW, baseY - bodyH * 0.7);
+    ctx.lineTo(bodyX, baseY - bodyH * 0.7);
+    ctx.moveTo(tankCx - tankR, baseY - bodyH * 0.4);
+    ctx.lineTo(bodyX + bodyW, baseY - bodyH * 0.4);
+    ctx.stroke();
+    ctx.lineCap = "butt";
+
+    // --- Main body (front) ---
+    const bodyGrad = ctx.createLinearGradient(bodyX, 0, bodyX + bodyW, 0);
+    bodyGrad.addColorStop(0, "#48525f");
+    bodyGrad.addColorStop(0.5, "#39414b");
+    bodyGrad.addColorStop(1, "#282e35");
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.roundRect(bodyX, bodyTop, bodyW, bodyH, 4 * z);
+    ctx.fill();
+    // top highlight
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.fillRect(bodyX, bodyTop, bodyW, 3 * z);
+
+    // roof vent
+    ctx.fillStyle = "#2c333c";
+    ctx.fillRect(sx - bodyW * 0.18, bodyTop - 6 * z, bodyW * 0.36, 6 * z);
+
+    // glowing windows (violet)
+    const winGlow = 0.6 + 0.4 * Math.sin(now / 500);
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 3; c++) {
+        const wx = bodyX + bodyW * (0.16 + c * 0.28);
+        const wy = bodyTop + bodyH * (0.16 + r * 0.26);
+        ctx.fillStyle = `rgba(190,150,255,${0.5 + 0.35 * winGlow})`;
+        ctx.beginPath();
+        ctx.roundRect(wx, wy, bodyW * 0.16, bodyH * 0.16, 1.5 * z);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.35)";
+        ctx.lineWidth = 1 * z;
+        ctx.stroke();
+      }
+    }
+
+    // glowing doorway
+    const doorW = bodyW * 0.2;
+    const doorH = bodyH * 0.4;
+    const doorGrad = ctx.createLinearGradient(0, baseY - doorH, 0, baseY);
+    doorGrad.addColorStop(0, "#b79bff");
+    doorGrad.addColorStop(1, "#5b3fd6");
+    ctx.fillStyle = doorGrad;
+    ctx.beginPath();
+    ctx.roundRect(sx - doorW / 2, baseY - doorH, doorW, doorH, [3 * z, 3 * z, 0, 0]);
+    ctx.fill();
+
+    // hazard stripe at the base
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(bodyX, baseY - 5 * z, bodyW, 5 * z);
+    ctx.clip();
+    for (let i = -1; i * 6 * z < bodyW + 12 * z; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#e0b13a" : "#20242b";
+      ctx.beginPath();
+      ctx.moveTo(bodyX + i * 12 * z, baseY - 5 * z);
+      ctx.lineTo(bodyX + i * 12 * z + 6 * z, baseY - 5 * z);
+      ctx.lineTo(bodyX + i * 12 * z + 12 * z, baseY);
+      ctx.lineTo(bodyX + i * 12 * z + 6 * z, baseY);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   private drawRock(sx: number, sy: number) {

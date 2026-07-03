@@ -29,6 +29,10 @@ export const STATION_SLOTS: Record<StationId, number> = {
   synthesis: 3,
 };
 
+/** Requirements to unlock the second (Synthetic) lab. */
+export const LAB2_UNLOCK_LEVEL = 10;
+export const LAB2_COST = 25000;
+
 export function jobProgress(job: LabJob, now: number): number {
   const r = recipeById(job.recipeId);
   if (!r) return 1;
@@ -110,6 +114,7 @@ export interface GameState {
   inventory: Partial<Record<CropId, number>>;
   products: Partial<Record<ProductId, number>>;
   jobs: LabJob[];
+  lab2Unlocked: boolean;
   selectedCrop: CropId;
   orders: Order[];
   message: GameMessage | null;
@@ -128,6 +133,7 @@ function defaultState(): GameState {
     inventory: {},
     products: {},
     jobs: [],
+    lab2Unlocked: false,
     selectedCrop: "tobacco",
     orders: [],
     message: null,
@@ -198,6 +204,7 @@ function save() {
     orders: state.orders,
     products: state.products,
     jobs: state.jobs,
+    lab2Unlocked: state.lab2Unlocked,
   };
   try {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -304,6 +311,7 @@ export const gameStore = {
         inventory: data.inventory ?? {},
         products: data.products ?? {},
         jobs,
+        lab2Unlocked: !!data.lab2Unlocked,
         selectedCrop: CROPS[data.selectedCrop] ? data.selectedCrop : "tobacco",
         orders: Array.isArray(data.orders) ? data.orders.filter(validOrder) : [],
         message: null,
@@ -634,6 +642,25 @@ export const gameStore = {
     state.products[id] = have - n;
     state.cash += def.sellPrice * n;
     sfx.play("sell");
+    changed();
+  },
+
+  // ---- Synthetic Lab (lab2) ----------------------------------------------
+
+  unlockLab2() {
+    if (state.lab2Unlocked) return;
+    if (levelForXp(state.xp) < LAB2_UNLOCK_LEVEL) {
+      setMessage(`Reach level ${LAB2_UNLOCK_LEVEL} to unlock the Synthetic Lab`, "bad");
+      return;
+    }
+    if (state.cash < LAB2_COST) {
+      setMessage(`Need $${LAB2_COST.toLocaleString()} to build the Synthetic Lab`, "bad");
+      return;
+    }
+    state.cash -= LAB2_COST;
+    state.lab2Unlocked = true;
+    sfx.play("unlock");
+    setMessage("🔬 Synthetic Lab unlocked!", "good");
     changed();
   },
 

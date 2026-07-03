@@ -87,4 +87,5 @@ export interface SaveData {
   orders?: Order[];
   products?: Partial<Record<ProductId, number>>;
   jobs?: LabJob[];
+  lab2Unlocked?: boolean;
 }
