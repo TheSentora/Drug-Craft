@@ -21,7 +21,22 @@ function fmtRemaining(ms: number): string {
 }
 
 function ProductChip({ id, className = "h-5 w-5" }: { id: ProductId; className?: string }) {
-  return <span className={`inline-flex items-center justify-center ${className}`}>{PRODUCTS[id].emoji}</span>;
+  const [failed, setFailed] = useState(false);
+  if (failed)
+    return (
+      <span className={`inline-flex items-center justify-center ${className}`}>
+        {PRODUCTS[id].emoji}
+      </span>
+    );
+  return (
+    <img
+      src={`/sprites/${id}.png`}
+      alt=""
+      draggable={false}
+      onError={() => setFailed(true)}
+      className={`object-contain ${className}`}
+    />
+  );
 }
 
 function CropChip({ id, className = "h-6 w-6" }: { id: CropId; className?: string }) {
@@ -67,8 +82,8 @@ function JobCell({ job, now }: { job: LabJob; now: number }) {
             strokeDashoffset={C * (1 - p)}
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-2xl">
-          {PRODUCTS[r.output.product].emoji}
+        <span className="absolute inset-0 flex items-center justify-center">
+          <ProductChip id={r.output.product} className="h-9 w-9" />
         </span>
       </div>
       {ready ? (
@@ -125,16 +140,16 @@ function StationPanel({ station, now, level }: { station: StationId; now: number
                   : "cursor-not-allowed border-white/10 bg-black/20 text-white/35"
               }`}
             >
-              <span>{PRODUCTS[r.output.product].emoji}</span>
+              <ProductChip id={r.output.product} className="h-5 w-5" />
               <span>{r.name}</span>
               {locked ? (
                 <span className="text-amber-400">Lv {r.unlockLevel}</span>
               ) : (
                 <span className="flex items-center gap-1 text-white/45">
                   {r.inputs.map((i) => (
-                    <span key={i.product}>
+                    <span key={i.product} className="inline-flex items-center gap-0.5">
                       {i.qty}
-                      {PRODUCTS[i.product].emoji}
+                      <ProductChip id={i.product} className="h-4 w-4" />
                     </span>
                   ))}
                   · {r.hours}h
@@ -248,9 +263,9 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
                             <span>have {have}</span>
                             <span>→</span>
                             {ex.outputs.map((o) => (
-                              <span key={o.product}>
+                              <span key={o.product} className="inline-flex items-center gap-0.5">
                                 {o.qty}
-                                {PRODUCTS[o.product].emoji}
+                                <ProductChip id={o.product} className="h-4 w-4" />
                               </span>
                             ))}
                           </div>
@@ -291,7 +306,7 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
                     className="flex items-center justify-between rounded-xl bg-black/25 p-2"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{rg.emoji}</span>
+                      <ProductChip id={rg.id} className="h-8 w-8" />
                       <div className="leading-tight">
                         <div className="text-xs font-semibold">{rg.name}</div>
                         <div className="text-[10px] text-white/45">
@@ -339,7 +354,7 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
                         className="flex items-center justify-between rounded-xl bg-black/25 px-2.5 py-2"
                       >
                         <div className="flex items-center gap-2">
-                          <ProductChip id={id} className="text-lg" />
+                          <ProductChip id={id} className="h-7 w-7" />
                           <div className="leading-tight">
                             <div className="text-xs font-semibold">{def.name}</div>
                             <div className="text-[10px] text-white/45">

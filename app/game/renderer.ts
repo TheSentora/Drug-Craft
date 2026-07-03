@@ -102,7 +102,8 @@ function getLabImg(): HTMLImageElement | null {
   return labImg;
 }
 
-// Second lab (may not exist yet — falls back to a drawn placeholder).
+// Second lab (bigger). Draw width in world px before zoom.
+const LAB2_W = 140;
 let lab2Img: HTMLImageElement | null = null;
 let lab2Ready = false;
 function getLab2Img(): HTMLImageElement | null {
@@ -422,6 +423,7 @@ export class FarmRenderer {
   private buildingHit(
     tile: { x: number; y: number } | null,
     baseW: number,
+    aspect: number,
     px: number,
     py: number,
   ): boolean {
@@ -429,18 +431,25 @@ export class FarmRenderer {
     const [sx, sy] = tileToScreen(tile.x, tile.y, this.cam, this.viewW, this.viewH);
     const z = this.cam.zoom;
     const w = baseW * z;
-    const h = w * (644 / 807);
-    const top = sy + 7 * z - h;
-    const bottom = sy + 9 * z;
+    const h = w * aspect;
+    const top = sy + 8 * z - h;
+    const bottom = sy + 10 * z;
     return px >= sx - w / 2 && px <= sx + w / 2 && py >= top && py <= bottom;
   }
 
+  /** lab2's draw aspect (from its PNG once loaded, else the placeholder ratio). */
+  private lab2Aspect(): number {
+    const img = getLab2Img();
+    if (img && lab2Ready && img.naturalWidth) return img.naturalHeight / img.naturalWidth;
+    return 644 / 807;
+  }
+
   private labHit(px: number, py: number): boolean {
-    return this.buildingHit(this.labTile, 90, px, py);
+    return this.buildingHit(this.labTile, 90, 644 / 807, px, py);
   }
 
   private lab2Hit(px: number, py: number): boolean {
-    return this.buildingHit(this.lab2Tile, 118, px, py);
+    return this.buildingHit(this.lab2Tile, LAB2_W, this.lab2Aspect(), px, py);
   }
 
   private onUp(e: PointerEvent) {
@@ -1379,8 +1388,8 @@ export class FarmRenderer {
   private drawLab2(sx: number, sy: number) {
     const { ctx } = this;
     const z = this.cam.zoom;
-    const w = 118 * z;
-    const h = w * (644 / 807);
+    const w = LAB2_W * z;
+    const h = w * this.lab2Aspect();
     const baseY = sy + 8 * z;
     const unlocked = gameStore.getState().lab2Unlocked;
     const now = performance.now();
