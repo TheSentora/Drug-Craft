@@ -14,21 +14,25 @@ interface Scene {
 
 const GIFT = `$${WELCOME_GIFT.toLocaleString()}`;
 
+/** Deliberate beat between pages. */
+const PAUSE = 2500;
+
+// Line breaks are hand-set so every line stays inside the book's pages.
 const SCENES: Scene[] = [
   {
-    text: "Welcome to DrugCraft.\nI know you're new here and don't\nknow much — I'm your drug\nexpert, Chikkie.",
-    hold: 1000,
+    text: "Welcome to DrugCraft.\nI know you're new here and\ndon't know much — I'm your\ndrug expert, Chikkie.",
+    hold: PAUSE,
   },
   {
-    text: "We'll be growing some fun stuff\ntogether — cannabis, shrooms,\ncrack…\nOr maybe engineering the hard\nstuff, like Fent or Meth.",
-    hold: 1000,
+    text: "We'll be growing fun stuff\ntogether — cannabis,\nshrooms, crack…\nOr maybe cooking the hard\nstuff, like Fent or Meth.",
+    hold: PAUSE,
   },
   {
-    text: "Sounds interesting, right?\nYou're not familiar with it yet,\nbut I'll be here to guide you\nthe whole way.",
-    hold: 700,
+    text: "Sounds interesting, right?\nYou're not familiar with it\nyet, but I'll be here to\nguide you the whole way.",
+    hold: PAUSE,
   },
   {
-    text: `Here's a welcome gift of ${GIFT}\nfor joining.\nLet's start the journey.`,
+    text: `Here's a welcome gift of\n${GIFT} for joining.\nLet's start the journey!`,
     hold: 0,
     final: true,
   },
@@ -47,7 +51,7 @@ export default function WelcomeIntro() {
   // Slide-up, then begin writing the first page.
   useEffect(() => {
     sfx.play("unlock");
-    const t = setTimeout(() => setSceneIdx(0), 780);
+    const t = setTimeout(() => setSceneIdx(0), 820);
     return () => clearTimeout(t);
   }, []);
 
@@ -76,7 +80,7 @@ export default function WelcomeIntro() {
       const delay = ch === "\n" ? 230 : ".?…,".includes(ch) ? 150 : 30;
       typeTimer.current = setTimeout(step, delay);
     };
-    typeTimer.current = setTimeout(step, 220);
+    typeTimer.current = setTimeout(step, 240);
     return () => {
       if (typeTimer.current) clearTimeout(typeTimer.current);
       if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -110,25 +114,25 @@ export default function WelcomeIntro() {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden px-3"
-      style={{ background: "rgba(6,14,10,0.9)" }}
+      className="fixed inset-0 z-[70] flex items-end justify-center overflow-hidden"
+      style={{ background: "#0a1610" }}
       onClick={onSkip}
     >
+      {/* Pushed down so Chikkie's feet stay buried below the screen edge. */}
       <div
-        className={leaving ? "book-leave" : "book-rise"}
-        style={{ width: "min(96vw, 780px)" }}
+        style={{ width: "min(100%, 1080px)", transform: "translateY(13%)" }}
       >
-        <div className="book-wrap relative">
+        <div className={`${leaving ? "book-leave" : "book-rise"} book-wrap relative`}>
           <img
             src="/sprites/book.png"
             alt=""
             draggable={false}
             className="block h-auto w-full select-none"
           />
-          {/* Handwriting sits over the open pages of the book. */}
+          {/* Handwriting stays fully inside the open pages. */}
           <div
             className="absolute flex items-center justify-center"
-            style={{ left: "8.5%", top: "10%", width: "55%", height: "64%" }}
+            style={{ left: "10%", top: "12%", width: "52%", height: "58%" }}
           >
             <p className="book-text">
               {text}
@@ -136,25 +140,25 @@ export default function WelcomeIntro() {
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Claim button (final page) or a subtle continue hint. */}
-        <div className="mt-3 flex h-12 items-center justify-center">
-          {done ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                claim();
-              }}
-              className="dc-pop rounded-xl bg-[#2fbf52] px-6 py-3 text-base font-extrabold text-[#0a1f10] shadow-lg transition active:scale-95 hover:bg-[#3ad964]"
-            >
-              🎁 Claim {GIFT} & start
-            </button>
-          ) : (
-            <span className="text-xs font-semibold text-[#7f9c88]">
-              tap to continue
-            </span>
-          )}
-        </div>
+      {/* Claim button / continue hint, pinned near the bottom of the screen. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-[6%] flex justify-center px-4">
+        {done ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              claim();
+            }}
+            className="pointer-events-auto dc-pop rounded-xl bg-[#2fbf52] px-7 py-3.5 text-lg font-extrabold text-[#0a1f10] shadow-lg transition active:scale-95 hover:bg-[#3ad964]"
+          >
+            🎁 Claim {GIFT} & start
+          </button>
+        ) : (
+          <span className="text-sm font-semibold text-[#9db8a5]">
+            tap to continue
+          </span>
+        )}
       </div>
     </div>
   );

@@ -117,8 +117,8 @@ body {
 .book-text {
   font-family: var(--font-handwriting), "Comic Sans MS", "Segoe Script", cursive;
   color: #2b2018;
-  font-size: 5cqw;
-  line-height: 1.12;
+  font-size: 4.1cqw;
+  line-height: 1.16;
   font-weight: 600;
   white-space: pre-wrap;
   text-align: center;
