@@ -20,19 +20,19 @@ const PAUSE = 2500;
 // Line breaks are hand-set so every line stays inside the book's pages.
 const SCENES: Scene[] = [
   {
-    text: "Welcome to DrugCraft.\nI know you're new here and\ndon't know much — I'm your\ndrug expert, Chikkie.",
+    text: "Welcome to drugcraft, i know\nyou are new here and don't\nknow much, im your drug\nexpert Chikkie",
     hold: PAUSE,
   },
   {
-    text: "We'll be growing fun stuff\ntogether — cannabis,\nshrooms, crack…\nOr maybe cooking the hard\nstuff, like Fent or Meth.",
+    text: "We will be growing some fun\nstuff together, it can be\ncannabis, shrooms, crack...\nOr maybe engineering hard\nstuff like Fent or Meth",
     hold: PAUSE,
   },
   {
-    text: "Sounds interesting, right?\nYou're not familiar with it\nyet, but I'll be here to\nguide you the whole way.",
+    text: "Sounds interesting right?\nI know you are not familiar\nwith it yet, i will be here to\nguide you throughout your\njourney",
     hold: PAUSE,
   },
   {
-    text: `Here's a welcome gift of\n${GIFT} for joining.\nLet's start the journey!`,
+    text: "Here i will put a welcome\ngift for joining, lets start\nthe journey here",
     hold: 0,
     final: true,
   },
@@ -115,7 +115,11 @@ export default function WelcomeIntro() {
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center overflow-hidden"
-      style={{ background: "#0a1610" }}
+      style={{
+        background: "rgba(8,18,12,0.45)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+      }}
       onClick={onSkip}
     >
       {/* Pushed down so Chikkie's feet stay buried below the screen edge. */}
