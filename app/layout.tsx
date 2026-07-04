@@ -1,5 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Caveat } from "next/font/google";
 import "./globals.css";
+
+// Handwriting font for Chikkie's welcome book.
+const handwriting = Caveat({
+  subsets: ["latin"],
+  variable: "--font-handwriting",
+});
 
 export const metadata: Metadata = {
   title: "DrugCraft",
@@ -26,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={handwriting.variable}>
       <body>{children}</body>
     </html>
   );

@@ -78,3 +78,71 @@ body {
 .dc-pop {
   animation: dc-pop 0.18s ease-out;
 }
+
+/* ---- Chikkie's welcome book ------------------------------------------- */
+
+/* The book + chicken slide up into view from below. */
+@keyframes book-rise {
+  0% {
+    transform: translateY(115%) scale(0.96);
+    opacity: 0;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.book-rise {
+  animation: book-rise 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Slide back down when the player claims the gift. */
+@keyframes book-leave {
+  to {
+    transform: translateY(120%) scale(0.95);
+    opacity: 0;
+  }
+}
+.book-leave {
+  animation: book-leave 0.34s ease-in forwards;
+}
+
+/* Text is measured against the book's width so it scales on any screen. */
+.book-wrap {
+  container-type: inline-size;
+}
+.book-text {
+  font-family: var(--font-handwriting), "Comic Sans MS", "Segoe Script", cursive;
+  color: #2b2018;
+  font-size: 5cqw;
+  line-height: 1.12;
+  font-weight: 600;
+  white-space: pre-wrap;
+  text-align: center;
+  transform: rotate(-1.1deg);
+}
+
+/* Blinking ink cursor while Chikkie is "writing". */
+@keyframes ink-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.ink-caret {
+  display: inline-block;
+  width: 0.5cqw;
+  height: 0.9em;
+  margin-left: 0.04em;
+  vertical-align: -0.08em;
+  background: #2b2018;
+  border-radius: 1px;
+  animation: ink-blink 0.75s steps(1) infinite;
+}

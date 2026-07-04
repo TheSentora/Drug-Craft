@@ -16,6 +16,8 @@ let user: CloudUser | null = null;
 let status: Status = "idle";
 let initialized = false;
 let authChecked = false;
+/** True once the first local↔cloud reconcile has settled (or there's nothing to load). */
+let reconciled = false;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 
 const listeners = new Set<() => void>();
@@ -103,6 +105,10 @@ export const cloud = {
   ready(): boolean {
     return authChecked;
   },
+  /** True once the cloud save has been reconciled — safe to trust local state. */
+  hydrated(): boolean {
+    return reconciled;
+  },
 
   async init() {
     if (initialized || !supabase) return;
@@ -126,13 +132,23 @@ export const cloud = {
     authChecked = true;
     notify();
     if (data.session?.user) await pullAndReconcile();
+    reconciled = true;
+    notify();
 
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const u = session.user;
         const wasLoggedOut = !user;
         setUser({ id: u.id, email: u.email ?? "" });
-        if (wasLoggedOut) pullAndReconcile();
+        if (wasLoggedOut) {
+          // Hold off trusting local state until this login's save is reconciled.
+          reconciled = false;
+          notify();
+          pullAndReconcile().finally(() => {
+            reconciled = true;
+            notify();
+          });
+        }
       } else {
         setUser(null);
         setStatus("idle");

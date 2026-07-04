@@ -104,4 +104,6 @@ export interface SaveData {
   jobs?: LabJob[];
   lab2Unlocked?: boolean;
   choppedTrees?: string[];
+  /** Has the player seen Chikkie's welcome intro? Absent on old saves. */
+  welcomed?: boolean;
 }

@@ -45,6 +45,9 @@ export function finishNowCost(job: LabJob, now: number): number {
 export const LAB2_UNLOCK_LEVEL = 10;
 export const LAB2_COST = 25000;
 
+/** Cash handed to a brand-new player after Chikkie's welcome intro. */
+export const WELCOME_GIFT = 1000;
+
 export function jobProgress(job: LabJob, now: number): number {
   const r = recipeById(job.recipeId);
   if (!r) return 1;
@@ -156,6 +159,8 @@ export interface GameState {
   selectedCrop: CropId;
   orders: Order[];
   message: GameMessage | null;
+  /** False for a fresh account until Chikkie's welcome intro is finished. */
+  welcomed: boolean;
 }
 
 function defaultState(): GameState {
@@ -175,6 +180,7 @@ function defaultState(): GameState {
     selectedCrop: "tobacco",
     orders: [],
     message: null,
+    welcomed: false,
   };
 }
 
@@ -249,6 +255,7 @@ function buildSave(): SaveData {
     jobs: state.jobs,
     lab2Unlocked: state.lab2Unlocked,
     choppedTrees: Array.from(state.choppedTrees),
+    welcomed: state.welcomed,
   };
 }
 
@@ -315,6 +322,8 @@ function applySave(data: SaveData) {
     selectedCrop: CROPS[data.selectedCrop] ? data.selectedCrop : "tobacco",
     orders: Array.isArray(data.orders) ? data.orders.filter(validOrder) : [],
     message: null,
+    // Old saves predate the intro → treat as already welcomed (no replay).
+    welcomed: data.welcomed ?? true,
   };
   orderSeq = state.orders.reduce((m, o) => Math.max(m, o.id), 0) + 1;
   jobSeq = state.jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
@@ -440,6 +449,16 @@ export const gameStore = {
 
   setSelectedCrop(id: CropId) {
     state.selectedCrop = id;
+    changed();
+  },
+
+  /** Finish Chikkie's welcome intro: hand over the welcome gift, once. */
+  completeWelcome() {
+    if (state.welcomed) return;
+    state.welcomed = true;
+    state.cash += WELCOME_GIFT;
+    sfx.play("levelup");
+    setMessage(`🎁 Welcome gift +$${WELCOME_GIFT.toLocaleString()}`, "good");
     changed();
   },
 
@@ -819,6 +838,7 @@ export const gameStore = {
 
   reset() {
     state = defaultState();
+    state.welcomed = true; // a manual reset shouldn't replay the new-user intro
     const level = levelForXp(0);
     while (state.orders.length < ORDER_COUNT) state.orders.push(genOrder(level));
     jobSeq = 1;

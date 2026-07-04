@@ -18,6 +18,7 @@ import AccountControl from "./AccountControl";
 import LabScreen from "./LabScreen";
 import LoginScreen from "./LoginScreen";
 import SyntheticLab from "./SyntheticLab";
+import WelcomeIntro from "./WelcomeIntro";
 
 function fmtGrow(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -161,10 +162,10 @@ export default function Game() {
     gameStore.getVersion,
     gameStore.getVersion,
   );
-  // Re-render on cloud auth changes (login / logout / initial session check).
+  // Re-render on cloud auth changes (login / logout / session check / reconcile).
   useSyncExternalStore(
     cloud.subscribe,
-    () => `${cloud.ready()}:${cloud.getUser()?.id ?? ""}`,
+    () => `${cloud.ready()}:${cloud.hydrated()}:${cloud.getUser()?.id ?? ""}`,
     () => "server",
   );
 
@@ -484,6 +485,9 @@ export default function Game() {
 
       {labOpen && <LabScreen onClose={() => setLabOpen(false)} />}
       {lab2Open && <SyntheticLab onClose={() => setLab2Open(false)} />}
+
+      {/* New players are greeted by Chikkie's welcome book (once cloud has settled). */}
+      {!state.welcomed && (!cloud.enabled || cloud.hydrated()) && <WelcomeIntro />}
     </main>
   );
 }
