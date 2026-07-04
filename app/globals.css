@@ -67,7 +67,7 @@ body {
   *,
   *::before,
   *::after {
-    cursor: url(/sprites/cursor.png) 20 0, auto !important;
+    cursor: url(/sprites/cursor.png) 12 0, auto !important;
   }
 }
 
