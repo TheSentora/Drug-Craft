@@ -1117,8 +1117,6 @@ export class FarmRenderer {
     const baseY = sy + 5 * z;
     const pulse = ready ? 6 + 5 * Math.sin(timeNow / 280) : 0;
 
-    this.shadow(sx, baseY + 1 * z, size * 0.3, size * 0.11);
-
     ctx.save();
     if (ready) {
       ctx.shadowColor = "rgba(120,255,140,0.9)";
