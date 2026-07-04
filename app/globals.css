@@ -60,10 +60,14 @@ body {
   user-select: none;
 }
 
-/* Custom mouse.png cursor: hide the native pointer everywhere (mouse only). */
-.use-mouse-png,
-.use-mouse-png * {
-  cursor: none !important;
+/* Custom mouse.png cursor: hide the native pointer everywhere for mouse users
+   (the CustomCursor follower draws the replacement). Touch is left untouched. */
+@media (pointer: fine) {
+  *,
+  *::before,
+  *::after {
+    cursor: none !important;
+  }
 }
 
 @keyframes dc-pop {

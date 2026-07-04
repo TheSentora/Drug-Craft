@@ -23,8 +23,6 @@ export default function CustomCursor() {
     const el = ref.current;
     if (!el) return;
 
-    document.documentElement.classList.add("use-mouse-png");
-
     const move = (e: PointerEvent) => {
       el.style.opacity = "1";
       el.style.transform = `translate3d(${
@@ -39,7 +37,6 @@ export default function CustomCursor() {
     document.addEventListener("pointerleave", hide);
     window.addEventListener("blur", hide);
     return () => {
-      document.documentElement.classList.remove("use-mouse-png");
       window.removeEventListener("pointermove", move);
       document.removeEventListener("pointerleave", hide);
       window.removeEventListener("blur", hide);

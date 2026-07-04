@@ -211,7 +211,7 @@ export default function WelcomeIntro() {
             />
             <div
               className="absolute flex items-center justify-center"
-              style={{ left: "10%", top: "12%", width: "52%", height: "58%" }}
+              style={{ left: "16%", top: "12%", width: "48%", height: "58%" }}
             >
               <p className="book-text">
                 {text}
