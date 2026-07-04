@@ -1,116 +1,175 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { sfx } from "../game/sfx";
-import { gameStore, WELCOME_GIFT } from "../game/store";
+import { WelcomeReward, gameStore } from "../game/store";
 
-interface Scene {
-  text: string;
-  /** ms to wait after the text finishes before moving to the next scene. */
-  hold: number;
-  /** The last scene: show the "claim gift" button instead of auto-advancing. */
-  final?: boolean;
-}
+// ---- Chikkie's script -------------------------------------------------------
 
-const GIFT = `$${WELCOME_GIFT.toLocaleString()}`;
-
-/** Deliberate beat between pages. */
+/** Beat between pages. */
 const PAUSE = 2500;
 
 // Line breaks are hand-set so every line stays inside the book's pages.
-const SCENES: Scene[] = [
-  {
-    text: "Welcome to drugcraft, i know\nyou are new here and don't\nknow much, im your drug\nexpert Chikkie",
-    hold: PAUSE,
-  },
-  {
-    text: "We will be growing some fun\nstuff together, it can be\ncannabis, shrooms, crack...\nOr maybe engineering hard\nstuff like Fent or Meth",
-    hold: PAUSE,
-  },
-  {
-    text: "Sounds interesting right?\nI know you are not familiar\nwith it yet, i will be here to\nguide you throughout your\njourney",
-    hold: PAUSE,
-  },
-  {
-    text: "Here i will put a welcome\ngift for joining, lets start\nthe journey here",
-    hold: 0,
-    final: true,
-  },
+const SCENES: string[] = [
+  "Welcome to drugcraft, i know\nyou are new here and don't\nknow much, im your drug\nexpert Chikkie",
+  "We will be growing some fun\nstuff together, it can be\ncannabis, shrooms, crack...\nOr maybe engineering hard\nstuff like Fent or Meth",
+  "Sounds interesting right?\nI know you are not familiar\nwith it yet, i will be here to\nguide you throughout your\njourney",
+  "Here i will put a welcome\ngift for joining, lets start\nthe journey here",
 ];
 
+// ---- Chest loot -------------------------------------------------------------
+
+interface Loot {
+  name: string;
+  img: string;
+  qty: number;
+  weight: number;
+  /** Card underline colour (rarity accent). */
+  accent: string;
+  reward: WelcomeReward;
+}
+
+// 80% cannabis seeds, 15% poppy seeds, 5% spread across the rest.
+const LOOT: Loot[] = [
+  { name: "Cannabis Seeds", img: "/sprites/cannabisseeds.png", qty: 1, weight: 20, accent: "#4caf50", reward: { kind: "seeds", crop: "cannabis", qty: 1, label: "Cannabis Seeds" } },
+  { name: "Cannabis Seeds", img: "/sprites/cannabisseeds.png", qty: 3, weight: 25, accent: "#4caf50", reward: { kind: "seeds", crop: "cannabis", qty: 3, label: "Cannabis Seeds" } },
+  { name: "Cannabis Seeds", img: "/sprites/cannabisseeds.png", qty: 5, weight: 20, accent: "#4caf50", reward: { kind: "seeds", crop: "cannabis", qty: 5, label: "Cannabis Seeds" } },
+  { name: "Cannabis Seeds", img: "/sprites/cannabisseeds.png", qty: 10, weight: 15, accent: "#4caf50", reward: { kind: "seeds", crop: "cannabis", qty: 10, label: "Cannabis Seeds" } },
+  { name: "Poppy Seeds", img: "/sprites/poppyseeds.png", qty: 1, weight: 9, accent: "#e0577f", reward: { kind: "seeds", crop: "poppy", qty: 1, label: "Poppy Seeds" } },
+  { name: "Poppy Seeds", img: "/sprites/poppyseeds.png", qty: 5, weight: 6, accent: "#e0577f", reward: { kind: "seeds", crop: "poppy", qty: 5, label: "Poppy Seeds" } },
+  { name: "Sulfuric Acid", img: "/sprites/sulfuric_acid.png", qty: 10, weight: 2, accent: "#f0b23a", reward: { kind: "product", id: "sulfuric_acid", qty: 10, label: "Sulfuric Acid" } },
+  { name: "Gasoline", img: "/sprites/gasoline.png", qty: 10, weight: 2, accent: "#f0b23a", reward: { kind: "product", id: "gasoline", qty: 10, label: "Gasoline" } },
+  { name: "Cocaine", img: "/sprites/cocaine.png", qty: 1, weight: 1, accent: "#e04a3c", reward: { kind: "product", id: "cocaine", qty: 1, label: "Cocaine" } },
+];
+
+function rollLoot(): Loot {
+  const total = LOOT.reduce((s, l) => s + l.weight, 0);
+  let r = Math.random() * total;
+  for (const l of LOOT) {
+    r -= l.weight;
+    if (r <= 0) return l;
+  }
+  return LOOT[0];
+}
+
+// ---- Spinner geometry -------------------------------------------------------
+
+const CARD_W = 104; // px
+const CARD_GAP = 8; // px
+const STEP = CARD_W + CARD_GAP;
+const STRIP_LEN = 56;
+const WIN_INDEX = 48; // where the winning card sits in the strip
+const SPIN_MS = 6800;
+
+type Phase = "book" | "gift" | "spin";
+
 export default function WelcomeIntro() {
-  // -1 while the book slides up; then 0..SCENES.length-1.
+  const [phase, setPhase] = useState<Phase>("book");
+
+  // -- book phase --
   const [sceneIdx, setSceneIdx] = useState(-1);
   const [shown, setShown] = useState(0);
-  const [done, setDone] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const later = (fn: () => void, ms: number) => {
+    timers.current.push(setTimeout(fn, ms));
+  };
 
-  const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // -- spin phase --
+  const winner = useMemo(() => rollLoot(), []);
+  const strip = useMemo(() => {
+    const cards: Loot[] = Array.from({ length: STRIP_LEN }, () => rollLoot());
+    cards[WIN_INDEX] = winner;
+    return cards;
+  }, [winner]);
+  const [spinning, setSpinning] = useState(false);
+  const [landed, setLanded] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const laneRef = useRef<HTMLDivElement>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Slide-up, then begin writing the first page.
+  // Book slides up, then the writing starts.
   useEffect(() => {
     sfx.play("unlock");
-    const t = setTimeout(() => setSceneIdx(0), 820);
-    return () => clearTimeout(t);
+    later(() => setSceneIdx(0), 820);
+    const t = timers.current;
+    return () => t.forEach(clearTimeout);
   }, []);
 
-  // Type the current scene out, character by character.
+  // Type the current scene out, character by character. No skipping.
   useEffect(() => {
-    if (sceneIdx < 0) return;
-    const scene = SCENES[sceneIdx];
+    if (phase !== "book" || sceneIdx < 0) return;
+    const text = SCENES[sceneIdx];
     setShown(0);
-    setDone(false);
     let i = 0;
+    let alive = true;
     const step = () => {
+      if (!alive) return;
       i++;
       setShown(i);
-      if (i >= scene.text.length) {
-        if (scene.final) {
-          setDone(true);
-        } else {
-          holdTimer.current = setTimeout(
-            () => setSceneIdx((s) => s + 1),
-            scene.hold,
-          );
-        }
+      const ch = text[i - 1];
+      if (ch !== "\n" && ch !== " ") sfx.play("type");
+      if (i >= text.length) {
+        // Page done → pause, then next page or the chicken sinks away.
+        later(() => {
+          if (sceneIdx < SCENES.length - 1) {
+            setSceneIdx((s) => s + 1);
+          } else {
+            setLeaving(true);
+            later(() => setPhase("gift"), 420);
+          }
+        }, PAUSE);
         return;
       }
-      const ch = scene.text[i - 1];
-      const delay = ch === "\n" ? 230 : ".?…,".includes(ch) ? 150 : 30;
-      typeTimer.current = setTimeout(step, delay);
+      later(step, ch === "\n" ? 230 : ".?…,".includes(ch) ? 150 : 30);
     };
-    typeTimer.current = setTimeout(step, 240);
+    later(step, 240);
     return () => {
-      if (typeTimer.current) clearTimeout(typeTimer.current);
-      if (holdTimer.current) clearTimeout(holdTimer.current);
+      alive = false;
     };
-  }, [sceneIdx]);
+  }, [phase, sceneIdx]);
 
-  // Tap anywhere to hurry: finish the line, or jump to the next page.
-  const onSkip = () => {
-    if (sceneIdx < 0 || leaving) return;
-    const scene = SCENES[sceneIdx];
-    if (typeTimer.current) clearTimeout(typeTimer.current);
-    if (holdTimer.current) clearTimeout(holdTimer.current);
-    if (shown < scene.text.length) {
-      setShown(scene.text.length);
-      if (scene.final) setDone(true);
-      else holdTimer.current = setTimeout(() => setSceneIdx((s) => s + 1), scene.hold);
-    } else if (!scene.final) {
-      setSceneIdx((s) => s + 1);
-    }
+  // Gift popup fanfare.
+  useEffect(() => {
+    if (phase === "gift") sfx.play("order");
+  }, [phase]);
+
+  const unlock = () => {
+    if (spinning) return;
+    const lane = laneRef.current;
+    if (!lane) return;
+    const laneW = lane.clientWidth;
+    // Land the winning card under the centre marker (with a little jitter).
+    const jitter = (Math.random() - 0.5) * CARD_W * 0.5;
+    const target = WIN_INDEX * STEP + CARD_W / 2 - laneW / 2 + jitter;
+    setSpinning(true);
+    sfx.play("unlock");
+    // Ticks while cards fly past, thinning out as it decelerates.
+    let t = 0;
+    tickRef.current = setInterval(() => {
+      t += 90;
+      if (t < SPIN_MS * 0.75) sfx.play("tick");
+    }, 90);
+    requestAnimationFrame(() => requestAnimationFrame(() => setOffset(-target)));
+    later(() => {
+      if (tickRef.current) clearInterval(tickRef.current);
+      setLanded(true);
+      sfx.play("levelup");
+    }, SPIN_MS + 250);
   };
 
-  const claim = () => {
-    if (leaving) return;
-    setLeaving(true);
-    setTimeout(() => gameStore.completeWelcome(), 320);
+  useEffect(() => {
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
+  }, []);
+
+  const collect = () => {
+    gameStore.completeWelcome(winner.reward);
   };
 
-  const scene = sceneIdx >= 0 ? SCENES[sceneIdx] : null;
-  const text = scene ? scene.text.slice(0, shown) : "";
-  const typing = !!scene && shown < scene.text.length;
+  const text = sceneIdx >= 0 ? SCENES[sceneIdx].slice(0, shown) : "";
+  const typing = sceneIdx >= 0 && shown < SCENES[sceneIdx].length;
 
   return (
     <div
@@ -120,50 +179,145 @@ export default function WelcomeIntro() {
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
       }}
-      onClick={onSkip}
     >
-      {/* Pushed down so Chikkie's feet stay buried below the screen edge. */}
-      <div
-        style={{ width: "min(100%, 1080px)", transform: "translateY(13%)" }}
-      >
-        <div className={`${leaving ? "book-leave" : "book-rise"} book-wrap relative`}>
-          <img
-            src="/sprites/book.png"
-            alt=""
-            draggable={false}
-            className="block h-auto w-full select-none"
-          />
-          {/* Handwriting stays fully inside the open pages. */}
-          <div
-            className="absolute flex items-center justify-center"
-            style={{ left: "10%", top: "12%", width: "52%", height: "58%" }}
-          >
-            <p className="book-text">
-              {text}
-              {typing && <span className="ink-caret" />}
-            </p>
+      {/* ---- Phase 1: Chikkie writes in the book ---- */}
+      {phase === "book" && (
+        <div style={{ width: "min(100%, 1080px)", transform: "translateY(13%)" }}>
+          <div className={`${leaving ? "book-leave" : "book-rise"} book-wrap relative`}>
+            <img
+              src="/sprites/book.png"
+              alt=""
+              draggable={false}
+              className="block h-auto w-full select-none"
+            />
+            <div
+              className="absolute flex items-center justify-center"
+              style={{ left: "10%", top: "12%", width: "52%", height: "58%" }}
+            >
+              <p className="book-text">
+                {text}
+                {typing && <span className="ink-caret" />}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Claim button / continue hint, pinned near the bottom of the screen. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[6%] flex justify-center px-4">
-        {done ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              claim();
-            }}
-            className="pointer-events-auto dc-pop rounded-xl bg-[#2fbf52] px-7 py-3.5 text-lg font-extrabold text-[#0a1f10] shadow-lg transition active:scale-95 hover:bg-[#3ad964]"
-          >
-            🎁 Claim {GIFT} & start
-          </button>
-        ) : (
-          <span className="text-sm font-semibold text-[#9db8a5]">
-            tap to continue
-          </span>
-        )}
-      </div>
+      {/* ---- Phase 2: the gift popup ---- */}
+      {phase === "gift" && (
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="dc-pop w-full max-w-xl rounded-2xl border border-[#2a4133] bg-[#101a13] p-6 text-center shadow-2xl">
+            <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Welcome Gift from Chikkie
+            </h1>
+            <img
+              src="/sprites/welcome.png"
+              alt=""
+              draggable={false}
+              className="mx-auto my-3 h-auto w-[min(52vh,320px)] select-none"
+            />
+            <button
+              onClick={() => setPhase("spin")}
+              className="w-full rounded-xl bg-[#2fbf52] px-6 py-3.5 text-lg font-extrabold text-[#0a1f10] transition active:scale-[0.98] hover:bg-[#3ad964]"
+            >
+              Accept
+            </button>
+            {/* Preload the spinner art while the player reads. */}
+            <div className="hidden">
+              {LOOT.map((l) => (
+                <img key={l.img + l.qty} src={l.img} alt="" />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Phase 3: the case spinner ---- */}
+      {phase === "spin" && (
+        <div className="absolute inset-0 flex items-center justify-center p-3">
+          <div className="dc-pop w-full max-w-3xl rounded-2xl border border-[#2a4133] bg-[#101a13] p-4 shadow-2xl sm:p-6">
+            <h2 className="mb-3 text-center text-xl font-extrabold text-white sm:text-2xl">
+              {landed ? (
+                <>
+                  You got{" "}
+                  <span style={{ color: winner.accent }}>
+                    {winner.qty}× {winner.name}
+                  </span>
+                  !
+                </>
+              ) : (
+                "Chikkie's Chest"
+              )}
+            </h2>
+
+            {/* Lane */}
+            <div
+              ref={laneRef}
+              className="relative overflow-hidden rounded-xl border border-[#243b2c] bg-[#0b140e] py-3"
+            >
+              {/* centre marker */}
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-[3px] -translate-x-1/2 bg-[#f0b23a]" />
+              <div
+                className="flex"
+                style={{
+                  gap: `${CARD_GAP}px`,
+                  transform: `translateX(${offset}px)`,
+                  transition: spinning
+                    ? `transform ${SPIN_MS}ms cubic-bezier(0.08, 0.72, 0.06, 1)`
+                    : undefined,
+                  willChange: "transform",
+                }}
+              >
+                {strip.map((l, i) => (
+                  <div
+                    key={i}
+                    className={`flex shrink-0 flex-col items-center rounded-lg border p-2 ${
+                      landed && i === WIN_INDEX
+                        ? "border-[#4ade80] bg-[#123021]"
+                        : "border-[#243b2c] bg-[#101a13]"
+                    }`}
+                    style={{ width: `${CARD_W}px` }}
+                  >
+                    <img
+                      src={l.img}
+                      alt=""
+                      draggable={false}
+                      className="h-14 w-14 select-none object-contain"
+                    />
+                    <span className="mt-1 text-xs font-extrabold text-white">×{l.qty}</span>
+                    <span className="w-full truncate text-center text-[9px] font-semibold text-[#9db8a5]">
+                      {l.name}
+                    </span>
+                    <span
+                      className="mt-1 h-[3px] w-full rounded-full"
+                      style={{ background: l.accent }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              {landed ? (
+                <button
+                  onClick={collect}
+                  className="dc-pop rounded-xl bg-[#2fbf52] px-8 py-3 text-lg font-extrabold text-[#0a1f10] transition active:scale-95 hover:bg-[#3ad964]"
+                >
+                  Collect
+                </button>
+              ) : (
+                <button
+                  onClick={unlock}
+                  disabled={spinning}
+                  className="rounded-xl bg-[#f0b23a] px-8 py-3 text-lg font-extrabold text-[#1a1204] transition active:scale-95 enabled:hover:bg-[#ffc74e] disabled:opacity-50"
+                >
+                  {spinning ? "…" : "Unlock"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

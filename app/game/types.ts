@@ -106,4 +106,6 @@ export interface SaveData {
   choppedTrees?: string[];
   /** Has the player seen Chikkie's welcome intro? Absent on old saves. */
   welcomed?: boolean;
+  /** Seeds owned per crop. Seeds can't be bought — they're found/won. */
+  seeds?: Partial<Record<CropId, number>>;
 }

@@ -303,7 +303,7 @@ export default function Game() {
                   {CROP_LIST.map((c) => {
                     const locked = level < c.unlockLevel;
                     const selected = state.selectedCrop === c.id;
-                    const affordable = state.cash >= c.seedCost;
+                    const owned = state.seeds[c.id] ?? 0;
                     return (
                       <button
                         key={c.id}
@@ -323,9 +323,9 @@ export default function Game() {
                             </span>
                           ) : (
                             <span
-                              className={`text-[11px] font-bold ${affordable ? "text-[#5fe08a]" : "text-[#ff6b5e]"}`}
+                              className={`text-[11px] font-bold ${owned > 0 ? "text-[#5fe08a]" : "text-[#5c7566]"}`}
                             >
-                              ${c.seedCost}
+                              ×{owned}
                             </span>
                           )}
                         </div>

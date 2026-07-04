@@ -45,8 +45,10 @@ export function finishNowCost(job: LabJob, now: number): number {
 export const LAB2_UNLOCK_LEVEL = 10;
 export const LAB2_COST = 25000;
 
-/** Cash handed to a brand-new player after Chikkie's welcome intro. */
-export const WELCOME_GIFT = 1000;
+/** What Chikkie's welcome chest can pay out. */
+export type WelcomeReward =
+  | { kind: "seeds"; crop: CropId; qty: number; label: string }
+  | { kind: "product"; id: ProductId; qty: number; label: string };
 
 export function jobProgress(job: LabJob, now: number): number {
   const r = recipeById(job.recipeId);
@@ -152,6 +154,8 @@ export interface GameState {
   xp: number;
   plots: Plot[];
   inventory: Partial<Record<CropId, number>>;
+  /** Seeds owned per crop — planting consumes one; they can't be bought. */
+  seeds: Partial<Record<CropId, number>>;
   products: Partial<Record<ProductId, number>>;
   jobs: LabJob[];
   lab2Unlocked: boolean;
@@ -173,6 +177,7 @@ function defaultState(): GameState {
     xp: 0,
     plots,
     inventory: {},
+    seeds: {}, // players start with zero seeds
     products: {},
     jobs: [],
     lab2Unlocked: false,
@@ -250,6 +255,7 @@ function buildSave(): SaveData {
     xp: state.xp,
     plots: state.plots,
     inventory: state.inventory,
+    seeds: state.seeds,
     selectedCrop: state.selectedCrop,
     lastSeen: Date.now(),
     orders: state.orders,
@@ -317,6 +323,7 @@ function applySave(data: SaveData) {
     xp: Number.isFinite(data.xp) ? data.xp : 0,
     plots,
     inventory: data.inventory ?? {},
+    seeds: data.seeds ?? {},
     products: data.products ?? {},
     jobs,
     lab2Unlocked: !!data.lab2Unlocked,
@@ -454,8 +461,8 @@ export const gameStore = {
     changed();
   },
 
-  /** Finish Chikkie's welcome intro: hand over the welcome gift, once. */
-  completeWelcome() {
+  /** Finish Chikkie's welcome intro, granting the chest reward once. */
+  completeWelcome(reward?: WelcomeReward) {
     if (state.welcomed) return;
     state.welcomed = true;
     // A replay (admin re-watching) shouldn't hand out the gift again.
@@ -464,9 +471,15 @@ export const gameStore = {
       changed();
       return;
     }
-    state.cash += WELCOME_GIFT;
-    sfx.play("levelup");
-    setMessage(`🎁 Welcome gift +$${WELCOME_GIFT.toLocaleString()}`, "good");
+    if (reward) {
+      if (reward.kind === "seeds") {
+        state.seeds[reward.crop] = (state.seeds[reward.crop] ?? 0) + reward.qty;
+      } else {
+        addProduct(reward.id, reward.qty);
+      }
+      sfx.play("levelup");
+      setMessage(`🎁 ${reward.qty}× ${reward.label} from Chikkie`, "good");
+    }
     changed();
   },
 
@@ -513,11 +526,12 @@ export const gameStore = {
       setMessage(`${def.name} unlocks at level ${def.unlockLevel}`, "bad");
       return;
     }
-    if (state.cash < def.seedCost) {
-      setMessage(`Not enough cash for ${def.name} seeds`, "bad");
+    const owned = state.seeds[def.id] ?? 0;
+    if (owned <= 0) {
+      setMessage(`No ${def.name} seeds`, "bad");
       return;
     }
-    state.cash -= def.seedCost;
+    state.seeds[def.id] = owned - 1;
     plot.plants.push({
       crop: def.id,
       plantedAt: Date.now(),

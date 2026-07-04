@@ -63,7 +63,9 @@ export type SfxName =
   | "order"
   | "levelup"
   | "unlock"
-  | "error";
+  | "error"
+  | "type"
+  | "tick";
 
 export const sfx = {
   isMuted(): boolean {
@@ -112,6 +114,14 @@ export const sfx = {
         break;
       case "error":
         tone(150, 0.11, 0, "square", 0.045);
+        break;
+      case "type":
+        // Quiet pen-scratch blip for the handwriting intro.
+        tone(1500 + Math.random() * 700, 0.02, 0, "triangle", 0.035);
+        break;
+      case "tick":
+        // Case-spinner tick as cards pass the marker.
+        tone(900, 0.03, 0, "square", 0.05);
         break;
     }
   },

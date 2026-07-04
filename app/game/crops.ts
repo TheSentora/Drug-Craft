@@ -35,7 +35,7 @@ export const CROPS: Record<CropId, CropDef> = {
     growSeconds: 90,
     sellPrice: 78,
     xp: 9,
-    unlockLevel: 2,
+    unlockLevel: 1,
     color: "#4caf50",
   },
   shrooms: {
@@ -68,7 +68,7 @@ export const CROPS: Record<CropId, CropDef> = {
     growSeconds: 600,
     sellPrice: 770,
     xp: 50,
-    unlockLevel: 6,
+    unlockLevel: 1,
     color: "#e0577f",
   },
 };
