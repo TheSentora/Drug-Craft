@@ -928,7 +928,7 @@ export class FarmRenderer {
           if (o.fence) this.drawFence(sx, sy, o.fence);
           break;
         case "tree":
-          this.drawTree(sx, sy);
+          this.drawTree(sx, sy, o.x, o.y);
           break;
         case "house":
           this.drawHouse(sx, sy);
@@ -1051,18 +1051,43 @@ export class FarmRenderer {
       this.blitTile(h % 2 === 0 ? "grassA" : "grassB", sx, sy);
     }
 
-    // Locked plot: overgrowth + lock + price.
+    // Locked plot: overgrown look; the price tag only shows on plots touching
+    // your land (the ones you can actually buy next) — no wall of padlocks.
     if (field && plot && !plot.unlocked) {
       ctx.fillStyle = "rgba(35,65,28,0.55)";
       this.diamondPath(sx, sy, hw, hh);
       ctx.fill();
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = `${14 * z}px ${EMOJI_FONT}`;
-      ctx.fillText("🔒", sx, sy - 3 * z);
-      ctx.font = `700 ${10 * z}px ${UI_FONT}`;
-      ctx.fillStyle = "#ffe27a";
-      ctx.fillText(`$${nextPrice}`, sx, sy + 9 * z);
+
+      const frontier = [
+        [tx - 1, ty],
+        [tx + 1, ty],
+        [tx, ty - 1],
+        [tx, ty + 1],
+      ].some(([nx, ny]) => {
+        const ni = plotIndexAt(nx, ny);
+        return ni >= 0 && state.plots[ni]?.unlocked;
+      });
+
+      if (frontier) {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `${13 * z}px ${EMOJI_FONT}`;
+        ctx.fillText("🔒", sx, sy - 3 * z);
+        ctx.font = `700 ${9.5 * z}px ${UI_FONT}`;
+        ctx.fillStyle = "#ffe27a";
+        ctx.fillText(`$${nextPrice}`, sx, sy + 8 * z);
+      } else {
+        // little weeds so it reads as uncleared ground
+        const wh = tileHash(tx, ty);
+        ctx.fillStyle = "rgba(52,94,40,0.9)";
+        for (let i = 0; i < 3; i++) {
+          const wx = sx + ((((wh >>> (i * 4)) % 9) - 4) / 5) * hw * 0.7;
+          const wy = sy + ((((wh >>> (i * 4 + 2)) % 5) - 2) / 5) * hh * 0.7;
+          ctx.beginPath();
+          ctx.ellipse(wx, wy, 3.4 * z, 2.2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
 
     // Hover highlight on the field.
@@ -1233,31 +1258,46 @@ export class FarmRenderer {
     post(b[0], b[1]);
   }
 
-  private drawTree(sx: number, sy: number) {
+  // Three foliage palettes [base, mid, top, highlight] so the forest isn't clones.
+  private static TREE_PALETTES: [string, string, string, string][] = [
+    ["#1f6e2d", "#2f8f3a", "#37a144", "#4cb858"],
+    ["#1a6128", "#277c33", "#2f8f3a", "#3fa04c"],
+    ["#2c7d2f", "#3f9e3f", "#54ae48", "#6cc258"],
+  ];
+
+  private drawTree(sx: number, sy: number, tx = 0, ty = 0) {
     const { ctx } = this;
-    const z = this.cam.zoom;
-    this.shadow(sx, sy + 2 * z, 14 * z, 5 * z);
-    // trunk
-    const trunkGrad = ctx.createLinearGradient(sx - 3 * z, 0, sx + 3 * z, 0);
+    const zc = this.cam.zoom;
+    const h = tileHash(tx, ty);
+    // Deterministic per-tile variety: size, sideways lean, palette.
+    const s = 0.8 + ((h >>> 3) % 5) * 0.09; // 0.8 .. 1.16
+    const jx = (((h >>> 7) % 9) - 4) * 1.1 * zc;
+    const jy = (((h >>> 11) % 5) - 2) * 0.9 * zc;
+    const pal = FarmRenderer.TREE_PALETTES[(h >>> 5) % 3];
+    const z = zc * s;
+    const x = sx + jx;
+    const y = sy + jy;
+
+    this.shadow(x, y + 2 * zc, 14 * z, 5 * z);
+    const trunkGrad = ctx.createLinearGradient(x - 3 * z, 0, x + 3 * z, 0);
     trunkGrad.addColorStop(0, "#5a3d22");
     trunkGrad.addColorStop(1, "#7a5230");
     ctx.fillStyle = trunkGrad;
-    ctx.fillRect(sx - 2.6 * z, sy - 14 * z, 5.2 * z, 14 * z);
-    // foliage: dark base, mid, light top
-    const cy = sy - 22 * z;
+    ctx.fillRect(x - 2.6 * z, y - 14 * z, 5.2 * z, 14 * z);
+    const cy = y - 22 * z;
     const blob = (bx: number, by: number, br: number, color: string) => {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(bx, by, br, 0, Math.PI * 2);
       ctx.fill();
     };
-    blob(sx - 8 * z, cy + 4 * z, 10 * z, "#1f6e2d");
-    blob(sx + 8 * z, cy + 4 * z, 10 * z, "#1f6e2d");
-    blob(sx, cy + 6 * z, 11 * z, "#1f6e2d");
-    blob(sx - 5 * z, cy - 2 * z, 10 * z, "#2f8f3a");
-    blob(sx + 5 * z, cy - 2 * z, 10 * z, "#2f8f3a");
-    blob(sx, cy - 7 * z, 10 * z, "#37a144");
-    blob(sx - 3.5 * z, cy - 9 * z, 5.5 * z, "#4cb858");
+    blob(x - 8 * z, cy + 4 * z, 10 * z, pal[0]);
+    blob(x + 8 * z, cy + 4 * z, 10 * z, pal[0]);
+    blob(x, cy + 6 * z, 11 * z, pal[0]);
+    blob(x - 5 * z, cy - 2 * z, 10 * z, pal[1]);
+    blob(x + 5 * z, cy - 2 * z, 10 * z, pal[1]);
+    blob(x, cy - 7 * z, 10 * z, pal[2]);
+    blob(x - 3.5 * z, cy - 9 * z, 5.5 * z, pal[3]);
   }
 
   private drawHouse(sx: number, sy: number) {
