@@ -20,7 +20,7 @@ import {
   SaveData,
   StationId,
 } from "./types";
-import { FIELD_H, FIELD_W } from "./world";
+import { FIELD_H, FIELD_W, chopReward, isChoppable } from "./world";
 
 /** How many jobs can run at once per station. */
 export const STATION_SLOTS: Record<StationId, number> = {
@@ -102,8 +102,11 @@ export interface GameMessage {
 
 /** Visual effect events for the renderer (sparkles, floating text). */
 export interface FxEvent {
-  kind: "sparkle" | "text";
+  kind: "sparkle" | "text" | "chop";
   plotIndex?: number;
+  /** Alternative to plotIndex: an arbitrary world tile. */
+  tx?: number;
+  ty?: number;
   text?: string;
 }
 
@@ -115,6 +118,7 @@ export interface GameState {
   products: Partial<Record<ProductId, number>>;
   jobs: LabJob[];
   lab2Unlocked: boolean;
+  choppedTrees: Set<string>;
   selectedCrop: CropId;
   orders: Order[];
   message: GameMessage | null;
@@ -134,6 +138,7 @@ function defaultState(): GameState {
     products: {},
     jobs: [],
     lab2Unlocked: false,
+    choppedTrees: new Set(),
     selectedCrop: "tobacco",
     orders: [],
     message: null,
@@ -205,6 +210,7 @@ function save() {
     products: state.products,
     jobs: state.jobs,
     lab2Unlocked: state.lab2Unlocked,
+    choppedTrees: Array.from(state.choppedTrees),
   };
   try {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -312,6 +318,7 @@ export const gameStore = {
         products: data.products ?? {},
         jobs,
         lab2Unlocked: !!data.lab2Unlocked,
+        choppedTrees: new Set(Array.isArray(data.choppedTrees) ? data.choppedTrees : []),
         selectedCrop: CROPS[data.selectedCrop] ? data.selectedCrop : "tobacco",
         orders: Array.isArray(data.orders) ? data.orders.filter(validOrder) : [],
         message: null,
@@ -642,6 +649,21 @@ export const gameStore = {
     state.products[id] = have - n;
     state.cash += def.sellPrice * n;
     sfx.play("sell");
+    changed();
+  },
+
+  // ---- Chopping trees ----------------------------------------------------
+
+  chopTree(x: number, y: number) {
+    if (!isChoppable(x, y, state.choppedTrees)) return;
+    state.choppedTrees.add(`${x},${y}`);
+    const reward = chopReward(x, y);
+    state.cash += reward;
+    sfx.play("unlock");
+    fxQueue.push({ kind: "chop", tx: x, ty: y });
+    fxQueue.push({ kind: "text", tx: x, ty: y, text: `+$${reward}` });
+    setMessage(`Cleared a tree +$${reward}`, "good");
+    addXp(4);
     changed();
   },
 

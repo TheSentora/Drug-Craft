@@ -88,4 +88,5 @@ export interface SaveData {
   products?: Partial<Record<ProductId, number>>;
   jobs?: LabJob[];
   lab2Unlocked?: boolean;
+  choppedTrees?: string[];
 }

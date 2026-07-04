@@ -4,30 +4,32 @@ A Hay Day–style farming game. Plant, grow and sell your crops to build a farmi
 
 Single-player, no backend. Progress is saved automatically to your browser (`localStorage`), and crops keep growing in real time even while the tab is closed.
 
-The farm is a pannable **isometric island in the sea** — a fenced, expandable
-5×5 field with a farmhouse, barn, windmill, pond, dirt path, trees, flowers,
-wandering chickens and butterflies. Textured tiles, soft shadows, animated
-water, drifting cloud shadows and particle effects bring it to life.
+The farm is a pannable **isometric world of endless countryside** — a fenced,
+expandable 5×5 field with a farmhouse, barn, windmill, pond, two labs, dirt
+path, forest, flowers, wandering chickens and butterflies. Textured tiles, soft
+shadows, drifting cloud shadows and particle effects bring it to life. Plays on
+desktop and mobile (drag-pan, pinch-zoom, collapsible menus).
 
 ## How to play
 
-- **Move around** — drag to pan the world, scroll to zoom, ⌂ to recenter.
-- **Plant** — pick a seed in the side panel, then tap an empty soil plot.
-- **Grow** — each crop ripens over real time (a countdown shows on the plot).
-- **Harvest** — tap a ripe plot (or hit *Harvest all*) to add the crop to your stash.
-- **Sell** — sell from the Market panel for cash.
-- **Orders** — deliver customer orders from the Orders board for bonus cash + XP
-  (reroll ones you don't like).
+- **Move around** — drag to pan, scroll or pinch to zoom, ⌂ to recenter.
+- **Plant** — open the *Seeds* menu, pick a seed, then tap an empty soil plot.
+- **Grow / harvest** — crops ripen in real time; tap a ripe plot (or *Harvest*).
+- **Sell** — sell from the *Market* menu.
+- **Orders** — deliver bundles from the *Orders* menu for bonus cash + XP.
+- **Chop trees** — tap a tree near the farm to clear it for cash and open up land.
+- **Labs** — tap the small lab to process crops; the Synthetic Lab (north, in the
+  trees) unlocks at level 10 for $25,000.
 - **Expand** — tap a locked plot to clear new land (price rises each time).
-- **Level up** — harvesting and orders earn XP; new crops unlock as you level up.
-- **Sound** — plant/harvest/sell/level-up feedback, mutable from the top bar.
+- **Level up** — everything earns XP; new crops and recipes unlock as you level.
 
 ## Tech
 
 - Next.js 16 (App Router) + React 19
 - TypeScript, Tailwind CSS v4
-- HTML5 Canvas isometric renderer (camera pan/zoom, depth-sorted draw,
+- HTML5 Canvas isometric renderer (camera pan/pinch-zoom, depth-sorted draw,
   baked texture tiles, particles, ambient animation)
+- Mobile-first HUD: bottom dock + collapsible drawers, safe-area aware
 - WebAudio synth for sound effects (no audio files)
 
 ## Run

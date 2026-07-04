@@ -111,8 +111,10 @@ export interface Decor {
 export const DECOR: Decor[] = [
   { type: "house", x: -3, y: 5 },
   { type: "barn", x: -3, y: 2 },
-  { type: "lab", x: 6, y: 2 },
-  { type: "lab2", x: 6, y: 5 },
+  // The small lab sits off to the east, a little away from the village.
+  { type: "lab", x: 7, y: 4 },
+  // The big Synthetic Lab is tucked up north, hidden in a grove of trees.
+  { type: "lab2", x: 2, y: -5 },
   { type: "windmill", x: 5, y: -1 },
   { type: "rock", x: -2, y: -2 },
   { type: "flower", x: 2, y: 5 },
@@ -120,6 +122,16 @@ export const DECOR: Decor[] = [
   { type: "flower", x: 5, y: 5 },
   { type: "flower", x: -2, y: 3 },
   { type: "flower", x: 6, y: 0 },
+  // grove hiding the Synthetic Lab
+  { type: "tree", x: 0, y: -5 },
+  { type: "tree", x: 4, y: -5 },
+  { type: "tree", x: 0, y: -4 },
+  { type: "tree", x: 4, y: -4 },
+  { type: "tree", x: 1, y: -6 },
+  { type: "tree", x: 3, y: -6 },
+  { type: "tree", x: 2, y: -7 },
+  { type: "tree", x: -1, y: -4 },
+  { type: "tree", x: 5, y: -4 },
   // trees around the perimeter (kept off the field & pond)
   { type: "tree", x: -3, y: -3 },
   { type: "tree", x: -1, y: -3 },
@@ -132,14 +144,19 @@ export const DECOR: Decor[] = [
   { type: "tree", x: -3, y: 7 },
   { type: "tree", x: 7, y: -1 },
   { type: "tree", x: 7, y: 1 },
-  { type: "tree", x: 7, y: 3 },
-  { type: "tree", x: 7, y: 5 },
   { type: "tree", x: 7, y: 7 },
   { type: "tree", x: -1, y: 7 },
   { type: "tree", x: 1, y: 7 },
   { type: "tree", x: 3, y: 7 },
   { type: "tree", x: 5, y: 7 },
 ];
+
+/** All decor positions (so procedural scenery never spawns on a building). */
+export const DECOR_TILES = new Set(DECOR.map((d) => `${d.x},${d.y}`));
+/** Fixed decor trees, by tile key. */
+export const DECOR_TREES = new Set(
+  DECOR.filter((d) => d.type === "tree").map((d) => `${d.x},${d.y}`),
+);
 
 export interface Camera {
   /** World tile the camera is centered on. */
@@ -162,6 +179,54 @@ export function farmDistance(x: number, y: number): number {
   const dx = x < ISLAND_MIN_X ? ISLAND_MIN_X - x : x > ISLAND_MAX_X ? x - ISLAND_MAX_X : 0;
   const dy = y < ISLAND_MIN_Y ? ISLAND_MIN_Y - y : y > ISLAND_MAX_Y ? y - ISLAND_MAX_Y : 0;
   return Math.max(dx, dy);
+}
+
+/** Deterministic per-tile hash for scenery + texture variation. */
+export function tileHash(x: number, y: number): number {
+  let h = (x * 374761393 + y * 668265263) ^ ((x + 91) * (y + 47) * 1274126177);
+  h = (h ^ (h >>> 13)) >>> 0;
+  return h;
+}
+
+/** Procedural countryside beyond the farm: strays → groves → deep forest. */
+export function proceduralDecor(
+  x: number,
+  y: number,
+): "tree" | "flower" | "rock" | null {
+  const d = farmDistance(x, y);
+  if (d <= 0) return null;
+  if (DECOR_TILES.has(`${x},${y}`)) return null;
+  const hsh = tileHash(x, y);
+  const tree = d >= 6 ? hsh % 4 !== 0 : d >= 3 ? hsh % 5 === 0 : hsh % 11 === 0;
+  if (tree) return "tree";
+  if (hsh % 17 === 3) return "flower";
+  if (hsh % 29 === 7) return "rock";
+  return null;
+}
+
+/** Is there a tree (fixed or procedural) at this tile? */
+export function treeAt(x: number, y: number): boolean {
+  return DECOR_TREES.has(`${x},${y}`) || proceduralDecor(x, y) === "tree";
+}
+
+/** How far out (from the farm) trees can be chopped for cash. */
+export const CHOP_RADIUS = 3;
+
+export function isChoppable(
+  x: number,
+  y: number,
+  chopped: Set<string>,
+): boolean {
+  return (
+    farmDistance(x, y) <= CHOP_RADIUS &&
+    !chopped.has(`${x},${y}`) &&
+    treeAt(x, y)
+  );
+}
+
+/** Cash paid for chopping a tree (further out pays a bit more). */
+export function chopReward(x: number, y: number): number {
+  return 18 + farmDistance(x, y) * 8;
 }
 
 export function tileToScreen(

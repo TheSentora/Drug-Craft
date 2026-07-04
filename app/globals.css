@@ -16,6 +16,19 @@ body {
   font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial,
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Mobile: no rubber-band scroll, no tap flash, no accidental zoom. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+/* Utility to pad UI clear of phone notches / home indicators. */
+.safe-b {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-t {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* The game canvas / board should never select text on rapid clicks */

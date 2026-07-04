@@ -21,15 +21,18 @@ import {
   TILE_THICK,
   TILE_W,
   WORLD_PAN,
-  farmDistance,
+  DECOR_TREES,
   fenceSegments,
+  isChoppable,
   isFieldTile,
   isPath,
   isPond,
   panDelta,
   plotIndexAt,
   plotTile,
+  proceduralDecor,
   screenToTile,
+  tileHash,
   tileToScreen,
 } from "./world";
 
@@ -42,13 +45,6 @@ function fmtTime(seconds: number): string {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return m > 0 ? `${m}:${String(r).padStart(2, "0")}` : `${r}s`;
-}
-
-/** Deterministic per-tile hash for texture variation. */
-function tileHash(x: number, y: number): number {
-  let h = (x * 374761393 + y * 668265263) ^ ((x + 91) * (y + 47) * 1274126177);
-  h = (h ^ (h >>> 13)) >>> 0;
-  return h;
 }
 
 /** Small deterministic RNG for baked textures. */
@@ -247,6 +243,11 @@ export class FarmRenderer {
   private startLookY = 0;
   private startZoom = 1;
   private hover = { x: NaN, y: NaN };
+  // Multi-touch (pinch) state.
+  private pointers = new Map<number, { x: number; y: number }>();
+  private pinchDist = 0;
+  private pinchZoom = 1;
+  private pinching = false;
 
   constructor(canvas: HTMLCanvasElement, onTileClick: (index: number) => void) {
     this.canvas = canvas;
@@ -297,6 +298,7 @@ export class FarmRenderer {
     canvas.addEventListener("pointerdown", this.onDown);
     canvas.addEventListener("pointermove", this.onMove);
     canvas.addEventListener("pointerup", this.onUp);
+    canvas.addEventListener("pointercancel", this.onUp);
     canvas.addEventListener("pointerleave", this.onUp);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
 
@@ -318,6 +320,7 @@ export class FarmRenderer {
     this.canvas.removeEventListener("pointerdown", this.onDown);
     this.canvas.removeEventListener("pointermove", this.onMove);
     this.canvas.removeEventListener("pointerup", this.onUp);
+    this.canvas.removeEventListener("pointercancel", this.onUp);
     this.canvas.removeEventListener("pointerleave", this.onUp);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.ro?.disconnect();
@@ -352,9 +355,9 @@ export class FarmRenderer {
     this.canvas.style.height = `${rect.height}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const panel = this.cssW > 900 ? 330 : 0;
-    this.viewW = this.cssW - panel;
-    this.viewH = this.cssH + 40;
+    // Center the world in the whole viewport; UI floats on top as drawers.
+    this.viewW = this.cssW;
+    this.viewH = this.cssH - 10;
 
     if (!this.userAdjusted) this.recenter();
   }
@@ -376,21 +379,46 @@ export class FarmRenderer {
   }
 
   private onDown(e: PointerEvent) {
-    this.down = true;
-    this.moved = false;
     const [x, y] = this.localPoint(e);
-    this.startSX = x;
-    this.startSY = y;
-    this.startLookX = this.cam.lookX;
-    this.startLookY = this.cam.lookY;
-    this.startZoom = this.cam.zoom;
+    this.pointers.set(e.pointerId, { x, y });
     try {
       this.canvas.setPointerCapture(e.pointerId);
     } catch {}
+    if (this.pointers.size === 1) {
+      this.down = true;
+      this.moved = false;
+      this.pinching = false;
+      this.startSX = x;
+      this.startSY = y;
+      this.startLookX = this.cam.lookX;
+      this.startLookY = this.cam.lookY;
+      this.startZoom = this.cam.zoom;
+    } else if (this.pointers.size === 2) {
+      // Two fingers → pinch-zoom; stop single-finger panning.
+      this.down = false;
+      this.pinching = true;
+      const pts = [...this.pointers.values()];
+      this.pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      this.pinchZoom = this.cam.zoom;
+      this.userAdjusted = true;
+    }
   }
 
   private onMove(e: PointerEvent) {
     const [x, y] = this.localPoint(e);
+    if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x, y });
+
+    if (this.pointers.size >= 2) {
+      const pts = [...this.pointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      this.cam.zoom = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, this.pinchZoom * (dist / this.pinchDist)),
+      );
+      this.userAdjusted = true;
+      return;
+    }
+
     if (this.down) {
       const dx = x - this.startSX;
       const dy = y - this.startSY;
@@ -415,7 +443,13 @@ export class FarmRenderer {
       this.hover = { x: Math.round(t.x), y: Math.round(t.y) };
       const idx = plotIndexAt(this.hover.x, this.hover.y);
       const overBuilding = this.labHit(x, y) || this.lab2Hit(x, y);
-      this.canvas.style.cursor = idx >= 0 || overBuilding ? "pointer" : "grab";
+      const overChop = isChoppable(
+        this.hover.x,
+        this.hover.y,
+        gameStore.getState().choppedTrees,
+      );
+      this.canvas.style.cursor =
+        idx >= 0 || overBuilding || overChop ? "pointer" : "grab";
     }
   }
 
@@ -453,13 +487,34 @@ export class FarmRenderer {
   }
 
   private onUp(e: PointerEvent) {
-    if (!this.down) return;
-    this.down = false;
-    this.canvas.style.cursor = "grab";
+    const had = this.pointers.has(e.pointerId);
+    this.pointers.delete(e.pointerId);
     try {
       this.canvas.releasePointerCapture(e.pointerId);
     } catch {}
-    if (this.moved) return;
+
+    // Pinch → single finger: resume panning from the remaining pointer.
+    if (this.pointers.size === 1) {
+      const p = [...this.pointers.values()][0];
+      this.down = true;
+      this.moved = true; // continued gesture, not a tap
+      this.startSX = p.x;
+      this.startSY = p.y;
+      this.startLookX = this.cam.lookX;
+      this.startLookY = this.cam.lookY;
+      this.startZoom = this.cam.zoom;
+      return;
+    }
+    if (this.pointers.size > 0) return;
+
+    const wasDown = this.down;
+    const wasPinch = this.pinching;
+    const wasMoved = this.moved;
+    this.down = false;
+    this.pinching = false;
+    this.canvas.style.cursor = "grab";
+    if (!had || !wasDown || wasMoved || wasPinch) return;
+
     const [x, y] = this.localPoint(e);
     if (this.lab2Hit(x, y)) {
       this.onLab2Click?.();
@@ -470,8 +525,16 @@ export class FarmRenderer {
       return;
     }
     const t = screenToTile(x, y, this.cam, this.viewW, this.viewH);
-    const idx = plotIndexAt(Math.round(t.x), Math.round(t.y));
-    if (idx >= 0) this.onTileClick(idx);
+    const tx = Math.round(t.x);
+    const ty = Math.round(t.y);
+    const idx = plotIndexAt(tx, ty);
+    if (idx >= 0) {
+      this.onTileClick(idx);
+      return;
+    }
+    if (isChoppable(tx, ty, gameStore.getState().choppedTrees)) {
+      gameStore.chopTree(tx, ty);
+    }
   }
 
   private onWheel(e: WheelEvent) {
@@ -714,8 +777,14 @@ export class FarmRenderer {
     // Particles.
     const fx = gameStore.drainFx();
     for (const e of fx) {
-      if (e.plotIndex == null) continue;
-      const { x, y } = plotTile(e.plotIndex);
+      const at =
+        e.plotIndex != null
+          ? plotTile(e.plotIndex)
+          : e.tx != null && e.ty != null
+            ? { x: e.tx, y: e.ty }
+            : null;
+      if (!at) continue;
+      const { x, y } = at;
       if (e.kind === "sparkle") {
         for (let i = 0; i < 8; i++) {
           const a = (i / 8) * Math.PI * 2;
@@ -731,6 +800,21 @@ export class FarmRenderer {
             color: Math.random() < 0.5 ? "#ffe27a" : "#a5f3b4",
           });
         }
+      } else if (e.kind === "chop") {
+        for (let i = 0; i < 12; i++) {
+          const a = Math.random() * Math.PI * 2;
+          this.particles.push({
+            tx: x,
+            ty: y,
+            vx: Math.cos(a) * 0.7,
+            vy: Math.sin(a) * 0.35,
+            rise: 24 + Math.random() * 20,
+            age: 0,
+            life: 0.6 + Math.random() * 0.4,
+            size: 2 + Math.random() * 2.5,
+            color: Math.random() < 0.5 ? "#8a5a2c" : "#3f9e3f",
+          });
+        }
       } else if (e.kind === "text" && e.text) {
         this.particles.push({
           tx: x,
@@ -741,7 +825,7 @@ export class FarmRenderer {
           age: 0,
           life: 1.1,
           size: 12,
-          color: "#d9f99d",
+          color: "#ffe27a",
           text: e.text,
         });
       }
@@ -780,32 +864,30 @@ export class FarmRenderer {
     const bMax = Math.ceil(Math.max(...bVals)) + 3;
 
     // Ground pass (back to front) + procedural countryside collection.
+    const chopped = state.choppedTrees;
     const objects: SceneObject[] = [];
     for (let b = bMin; b <= bMax; b++) {
       for (let x = Math.ceil((aMin + b) / 2); x <= Math.floor((aMax + b) / 2); x++) {
         const y = b - x;
         this.drawGround(x, y, state, timeNow, nextPrice, now);
 
-        // Countryside: strays near the farm, groves further out, deep forest
-        // at the horizon — all deterministic from the tile hash.
-        const d = farmDistance(x, y);
-        if (d > 0) {
-          const hsh = tileHash(x, y);
-          const tree =
-            d >= 6 ? hsh % 4 !== 0 : d >= 3 ? hsh % 5 === 0 : hsh % 11 === 0;
-          if (tree) {
-            objects.push({ depth: x + y, x, y, kind: "tree" });
-          } else if (hsh % 17 === 3) {
-            objects.push({ depth: x + y, x, y, kind: "flower" });
-          } else if (hsh % 29 === 7) {
-            objects.push({ depth: x + y, x, y, kind: "rock" });
-          }
+        // Countryside: strays near the farm, groves further out, deep forest.
+        const pd = proceduralDecor(x, y);
+        if (pd === "tree") {
+          if (!chopped.has(`${x},${y}`)) objects.push({ depth: x + y, x, y, kind: "tree" });
+        } else if (pd === "flower") {
+          objects.push({ depth: x + y, x, y, kind: "flower" });
+        } else if (pd === "rock") {
+          objects.push({ depth: x + y, x, y, kind: "rock" });
         }
       }
     }
 
     // Farm decor + fences + chickens + crops, depth sorted with the rest.
-    for (const d of DECOR) objects.push({ depth: d.x + d.y, x: d.x, y: d.y, kind: d.type });
+    for (const d of DECOR) {
+      if (d.type === "tree" && chopped.has(`${d.x},${d.y}`)) continue;
+      objects.push({ depth: d.x + d.y, x: d.x, y: d.y, kind: d.type });
+    }
     for (const f of this.fences) {
       const bias = f.side === "N" || f.side === "W" ? -0.45 : 0.45;
       objects.push({ depth: f.x + f.y + bias, x: f.x, y: f.y, kind: "fence", fence: f });
