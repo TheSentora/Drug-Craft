@@ -15,6 +15,7 @@ import { gameStore, growRange, plotReadyCount } from "../game/store";
 import { CropId } from "../game/types";
 import { cloud } from "../game/cloud";
 import AccountControl from "./AccountControl";
+import ContractAddress from "./ContractAddress";
 import LabScreen from "./LabScreen";
 import LoginScreen from "./LoginScreen";
 import SyntheticLab from "./SyntheticLab";
@@ -234,20 +235,23 @@ export default function Game() {
 
       {/* Compact top bar */}
       <header className="safe-t pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 sm:p-3">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-[#2a4133] bg-[#132018] px-3 py-1.5">
-          <span className="text-xl">🌿</span>
-          <h1 className="hidden text-lg font-extrabold tracking-tight sm:block">
-            Drug<span className="text-[#4ade80]">Craft</span>
-          </h1>
-          <div className="flex flex-col justify-center">
-            <span className="text-[10px] font-bold text-[#bcd6c4]">Lv {level}</span>
-            <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#0a1f13] sm:w-20">
-              <div
-                className="h-full rounded-full bg-[#2fbf52] transition-[width] duration-300"
-                style={{ width: `${Math.round(prog.pct * 100)}%` }}
-              />
+        <div className="flex flex-col items-start gap-2">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-[#2a4133] bg-[#132018] px-3 py-1.5">
+            <span className="text-xl">🌿</span>
+            <h1 className="hidden text-lg font-extrabold tracking-tight sm:block">
+              Drug<span className="text-[#4ade80]">Craft</span>
+            </h1>
+            <div className="flex flex-col justify-center">
+              <span className="text-[10px] font-bold text-[#bcd6c4]">Lv {level}</span>
+              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#0a1f13] sm:w-20">
+                <div
+                  className="h-full rounded-full bg-[#2fbf52] transition-[width] duration-300"
+                  style={{ width: `${Math.round(prog.pct * 100)}%` }}
+                />
+              </div>
             </div>
           </div>
+          <ContractAddress className="pointer-events-auto" />
         </div>
 
         <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border border-[#2a4133] bg-[#132018] px-2 py-1.5">

@@ -2,6 +2,7 @@
 
 import { cloud } from "../game/cloud";
 import AuthForm from "./AuthForm";
+import ContractAddress from "./ContractAddress";
 
 export default function LoginScreen() {
   return (
@@ -15,6 +16,11 @@ export default function LoginScreen() {
       />
       {/* Flat scrim so the form stays readable over the art. */}
       <div className="absolute inset-0 bg-black/40" />
+
+      {/* Contract address, top-left. */}
+      <div className="safe-t absolute left-3 top-3 z-20">
+        <ContractAddress />
+      </div>
 
       {/* Login UI on top. */}
       <div className="relative z-10 flex h-full items-center justify-center p-4">
