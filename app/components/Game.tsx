@@ -13,6 +13,8 @@ import { FarmRenderer } from "../game/renderer";
 import { sfx } from "../game/sfx";
 import { gameStore, isReady } from "../game/store";
 import { CropId } from "../game/types";
+import { cloud } from "../game/cloud";
+import AccountControl from "./AccountControl";
 import LabScreen from "./LabScreen";
 import SyntheticLab from "./SyntheticLab";
 
@@ -156,6 +158,7 @@ export default function Game() {
 
   useEffect(() => {
     gameStore.init();
+    cloud.init();
     setMuted(sfx.isMuted());
     setMounted(true);
 
@@ -234,6 +237,7 @@ export default function Game() {
           <div className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/30">
             💵 ${state.cash.toLocaleString()}
           </div>
+          <AccountControl />
           <button
             onClick={() => setMuted(sfx.toggle())}
             className="rounded-lg px-2 py-1.5 text-base transition active:scale-95 hover:bg-white/10"

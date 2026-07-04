@@ -196,9 +196,12 @@ function addXp(n: number) {
 
 // ---- Persistence ----------------------------------------------------------
 
-function save() {
-  if (typeof window === "undefined") return;
-  const data: SaveData = {
+/** Optional listener (e.g. cloud sync) notified whenever we save. */
+let onSavedHook: ((data: SaveData) => void) | null = null;
+
+/** Serializable snapshot of the whole game. */
+function buildSave(): SaveData {
+  return {
     v: SAVE_VERSION,
     cash: state.cash,
     xp: state.xp,
@@ -212,11 +215,65 @@ function save() {
     lab2Unlocked: state.lab2Unlocked,
     choppedTrees: Array.from(state.choppedTrees),
   };
+}
+
+function save() {
+  if (typeof window === "undefined") return;
+  const data = buildSave();
   try {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch {
     /* storage full / blocked — ignore */
   }
+  onSavedHook?.(data);
+}
+
+function topUpOrders() {
+  const level = levelForXp(state.xp);
+  while (state.orders.length < ORDER_COUNT) state.orders.push(genOrder(level));
+}
+
+function welcomeBack() {
+  const now = Date.now();
+  const readyPlots = state.plots.filter((p) => isReady(p, now)).length;
+  const readyJobs = state.jobs.filter((j) => jobReady(j, now)).length;
+  if (readyPlots > 0 || readyJobs > 0) {
+    const bits: string[] = [];
+    if (readyPlots > 0) bits.push(`${readyPlots} plot${readyPlots > 1 ? "s" : ""}`);
+    if (readyJobs > 0) bits.push(`${readyJobs} batch${readyJobs > 1 ? "es" : ""}`);
+    setMessage(`Welcome back! ${bits.join(" & ")} ready to collect.`, "good");
+  }
+}
+
+/** Replace the whole game state from a SaveData (local or cloud). */
+function applySave(data: SaveData) {
+  const plots: Plot[] = Array.from({ length: TOTAL_PLOTS }, (_, i) => {
+    const p = data.plots?.[i];
+    return p
+      ? {
+          unlocked: !!p.unlocked,
+          crop: p.crop ?? null,
+          plantedAt: p.plantedAt ?? null,
+        }
+      : { unlocked: i < INITIAL_UNLOCKED, crop: null, plantedAt: null };
+  });
+  const jobs = Array.isArray(data.jobs) ? data.jobs.filter(validJob) : [];
+  state = {
+    cash: Number.isFinite(data.cash) ? data.cash : START_CASH,
+    xp: Number.isFinite(data.xp) ? data.xp : 0,
+    plots,
+    inventory: data.inventory ?? {},
+    products: data.products ?? {},
+    jobs,
+    lab2Unlocked: !!data.lab2Unlocked,
+    choppedTrees: new Set(Array.isArray(data.choppedTrees) ? data.choppedTrees : []),
+    selectedCrop: CROPS[data.selectedCrop] ? data.selectedCrop : "tobacco",
+    orders: Array.isArray(data.orders) ? data.orders.filter(validOrder) : [],
+    message: null,
+  };
+  orderSeq = state.orders.reduce((m, o) => Math.max(m, o.id), 0) + 1;
+  jobSeq = state.jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
+  topUpOrders();
 }
 
 function load(): SaveData | null {
@@ -299,47 +356,41 @@ export const gameStore = {
     initialized = true;
     const data = load();
     if (data) {
-      const plots: Plot[] = Array.from({ length: TOTAL_PLOTS }, (_, i) => {
-        const p = data.plots[i];
-        return p
-          ? {
-              unlocked: !!p.unlocked,
-              crop: p.crop ?? null,
-              plantedAt: p.plantedAt ?? null,
-            }
-          : { unlocked: i < INITIAL_UNLOCKED, crop: null, plantedAt: null };
-      });
-      const jobs = Array.isArray(data.jobs) ? data.jobs.filter(validJob) : [];
-      state = {
-        cash: Number.isFinite(data.cash) ? data.cash : START_CASH,
-        xp: Number.isFinite(data.xp) ? data.xp : 0,
-        plots,
-        inventory: data.inventory ?? {},
-        products: data.products ?? {},
-        jobs,
-        lab2Unlocked: !!data.lab2Unlocked,
-        choppedTrees: new Set(Array.isArray(data.choppedTrees) ? data.choppedTrees : []),
-        selectedCrop: CROPS[data.selectedCrop] ? data.selectedCrop : "tobacco",
-        orders: Array.isArray(data.orders) ? data.orders.filter(validOrder) : [],
-        message: null,
-      };
-      orderSeq = state.orders.reduce((m, o) => Math.max(m, o.id), 0) + 1;
-      jobSeq = state.jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
-
-      const now = Date.now();
-      const readyPlots = state.plots.filter((p) => isReady(p, now)).length;
-      const readyJobs = state.jobs.filter((j) => jobReady(j, now)).length;
-      if (readyPlots > 0 || readyJobs > 0) {
-        const bits: string[] = [];
-        if (readyPlots > 0) bits.push(`${readyPlots} plot${readyPlots > 1 ? "s" : ""}`);
-        if (readyJobs > 0) bits.push(`${readyJobs} batch${readyJobs > 1 ? "es" : ""}`);
-        setMessage(`Welcome back! ${bits.join(" & ")} ready to collect.`, "good");
-      }
+      applySave(data);
+      welcomeBack();
+    } else {
+      topUpOrders();
     }
-    // Top up the orders board.
-    const level = levelForXp(state.xp);
-    while (state.orders.length < ORDER_COUNT) state.orders.push(genOrder(level));
     notify();
+  },
+
+  /** Serializable snapshot (used by cloud sync). */
+  snapshot(): SaveData {
+    return buildSave();
+  },
+
+  /** The epoch-ms of the current save (for newest-wins conflict resolution). */
+  lastSeen(): number {
+    try {
+      const raw =
+        typeof window !== "undefined" ? window.localStorage.getItem(SAVE_KEY) : null;
+      return raw ? (JSON.parse(raw) as SaveData).lastSeen ?? 0 : 0;
+    } catch {
+      return 0;
+    }
+  },
+
+  /** Apply a save loaded from the cloud, then persist it locally. */
+  loadRemote(data: SaveData) {
+    applySave(data);
+    welcomeBack();
+    notify();
+    save();
+  },
+
+  /** Register a hook fired on every save (cloud sync pushes from here). */
+  onSaved(cb: (data: SaveData) => void) {
+    onSavedHook = cb;
   },
 
   setSelectedCrop(id: CropId) {
