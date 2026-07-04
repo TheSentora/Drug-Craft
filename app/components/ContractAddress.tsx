@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export const CONTRACT_ADDRESS = "2Nmgb5Su5wRGVR7aC4PmpiKUQy7P4SPfKWCamdghpump";
+export const CONTRACT_ADDRESS = "GYPkKVmMmErcpKttwyc6zF5nYRzR5HGjWeSpgjvMpump";
 
 /** Solid, click-to-copy contract-address box. */
 export default function ContractAddress({ className = "" }: { className?: string }) {
