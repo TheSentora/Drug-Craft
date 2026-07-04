@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { levelForXp } from "../game/levels";
 import { STATIONS } from "../game/production";
 import { LAB2_COST, LAB2_UNLOCK_LEVEL, gameStore } from "../game/store";
-import { StashPanel, StationPanel, SuppliesPanel } from "./labParts";
+import { CashOutPanel, StationPanel, SuppliesPanel } from "./labParts";
 
 export default function SyntheticLab({ onClose }: { onClose: () => void }) {
   const [now, setNow] = useState(() => Date.now());
@@ -46,8 +46,8 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
         {unlocked ? (
           <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col gap-4">
+              <CashOutPanel />
               <SuppliesPanel only={["precursor", "sulfuric_acid", "acetic_anhydride"]} />
-              <StashPanel />
             </div>
             <div className="flex flex-col gap-4 lg:col-span-2">
               {STATIONS.filter((s) => s.lab === 2).map((s) => (

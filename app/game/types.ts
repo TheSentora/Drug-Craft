@@ -108,4 +108,21 @@ export interface SaveData {
   welcomed?: boolean;
   /** Seeds owned per crop. Seeds can't be bought — they're found/won. */
   seeds?: Partial<Record<CropId, number>>;
+  /** In-game USDC (from cashing out fent/meth grams). Withdrawable. */
+  usdc?: number;
+  /** Player's payout wallet address. */
+  withdrawWallet?: string;
+  /** Pending/paid withdrawal requests. */
+  withdrawals?: Withdrawal[];
+}
+
+export interface Withdrawal {
+  id: number;
+  /** USDC amount requested. */
+  amount: number;
+  wallet: string;
+  at: number;
+  status: "pending" | "paid" | "rejected";
+  /** On-chain tx signature once paid (set by the operator). */
+  txid?: string;
 }

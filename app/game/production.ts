@@ -103,7 +103,8 @@ export const PRODUCTS: Record<ProductId, ProductDef> = {
     name: "Crystal Meth",
     emoji: "🧊",
     kind: "refined",
-    sellPrice: 3800,
+    // Not sold for in-game cash — measured in grams & cashed out to USDC.
+    sellPrice: 0,
     color: "#8fd8f0",
   },
   fentanyl: {
@@ -111,7 +112,8 @@ export const PRODUCTS: Record<ProductId, ProductDef> = {
     name: "Fentanyl",
     emoji: "☠️",
     kind: "refined",
-    sellPrice: 6500,
+    // Not sold for in-game cash — measured in grams & cashed out to USDC.
+    sellPrice: 0,
     color: "#e07a8a",
   },
   // ---- buyable reagents ----
@@ -156,6 +158,22 @@ export const PRODUCTS: Record<ProductId, ProductDef> = {
 export const REAGENTS: ProductDef[] = Object.values(PRODUCTS).filter(
   (p) => p.kind === "reagent",
 );
+
+/** Products measured in grams and cashed out to in-game USDC (not cash). */
+export const GRAM_PRODUCTS: ProductId[] = ["fentanyl", "meth"];
+
+/** In-game USDC credited per gram when cashing out. */
+export const USDC_PER_GRAM: Partial<Record<ProductId, number>> = {
+  fentanyl: 100,
+  meth: 50,
+};
+
+export function isGramProduct(id: ProductId): boolean {
+  return GRAM_PRODUCTS.includes(id);
+}
+
+/** Grams produced per batch — deliberately tiny (extremely hard to make). */
+export const GRAMS_PER_BATCH = 0.1;
 
 /** Instant extraction: turn one harvested crop into intermediate(s). */
 export interface Extraction {
@@ -264,26 +282,26 @@ export const RECIPES: Recipe[] = [
   {
     id: "make_meth",
     station: "meth",
-    name: "Cook Meth",
+    name: "Cook 0.1g Meth",
     inputs: [
-      { product: "precursor", qty: 2 },
-      { product: "sulfuric_acid", qty: 1 },
+      { product: "precursor", qty: 3 },
+      { product: "sulfuric_acid", qty: 2 },
     ],
-    output: { product: "meth", qty: 1 },
-    hours: 8,
+    output: { product: "meth", qty: GRAMS_PER_BATCH },
+    hours: 24, // extremely slow: a full day for 0.1g
     xp: 220,
     unlockLevel: 10,
   },
   {
     id: "make_fentanyl",
     station: "fentanyl",
-    name: "Make Fentanyl",
+    name: "Make 0.1g Fentanyl",
     inputs: [
-      { product: "precursor", qty: 2 },
-      { product: "acetic_anhydride", qty: 2 },
+      { product: "precursor", qty: 4 },
+      { product: "acetic_anhydride", qty: 3 },
     ],
-    output: { product: "fentanyl", qty: 1 },
-    hours: 14,
+    output: { product: "fentanyl", qty: GRAMS_PER_BATCH },
+    hours: 48, // brutal: two days for 0.1g
     xp: 400,
     unlockLevel: 12,
   },

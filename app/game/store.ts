@@ -5,7 +5,9 @@ import { levelForXp } from "./levels";
 import {
   PRODUCTS,
   Recipe,
+  USDC_PER_GRAM,
   extractionForCrop,
+  isGramProduct,
   recipeById,
   recipeDuration,
 } from "./production";
@@ -20,6 +22,7 @@ import {
   ProductId,
   SaveData,
   StationId,
+  Withdrawal,
 } from "./types";
 import { FIELD_H, FIELD_W, chopReward, isChoppable } from "./world";
 
@@ -108,6 +111,19 @@ export function plotReadyCount(plot: Plot, now: number): number {
   return plot.plants.reduce((n, pl) => n + (plantingReady(pl, now) ? 1 : 0), 0);
 }
 
+/** Round to 2 decimals (money / grams). */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Grams shown with up to 3 decimals, trimmed. */
+export function fmtGrams(g: number): string {
+  return `${round3(g)}g`;
+}
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
 // ---- Orders ----------------------------------------------------------------
 
 let orderSeq = 1;
@@ -165,7 +181,15 @@ export interface GameState {
   message: GameMessage | null;
   /** False for a fresh account until Chikkie's welcome intro is finished. */
   welcomed: boolean;
+  /** In-game USDC balance (cashed out from fent/meth grams). */
+  usdc: number;
+  /** Saved payout wallet. */
+  withdrawWallet: string;
+  withdrawals: Withdrawal[];
 }
+
+/** Minimum USDC that can be withdrawn at once. */
+export const MIN_WITHDRAW = 10;
 
 function defaultState(): GameState {
   const plots: Plot[] = Array.from({ length: TOTAL_PLOTS }, (_, i) => ({
@@ -186,6 +210,9 @@ function defaultState(): GameState {
     orders: [],
     message: null,
     welcomed: false,
+    usdc: 0,
+    withdrawWallet: "",
+    withdrawals: [],
   };
 }
 
@@ -264,6 +291,9 @@ function buildSave(): SaveData {
     lab2Unlocked: state.lab2Unlocked,
     choppedTrees: Array.from(state.choppedTrees),
     welcomed: state.welcomed,
+    usdc: state.usdc,
+    withdrawWallet: state.withdrawWallet,
+    withdrawals: state.withdrawals,
   };
 }
 
@@ -333,6 +363,9 @@ function applySave(data: SaveData) {
     message: null,
     // Old saves predate the intro → treat as already welcomed (no replay).
     welcomed: data.welcomed ?? true,
+    usdc: Number.isFinite(data.usdc) ? (data.usdc as number) : 0,
+    withdrawWallet: typeof data.withdrawWallet === "string" ? data.withdrawWallet : "",
+    withdrawals: Array.isArray(data.withdrawals) ? data.withdrawals : [],
   };
   orderSeq = state.orders.reduce((m, o) => Math.max(m, o.id), 0) + 1;
   jobSeq = state.jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
@@ -763,6 +796,12 @@ export const gameStore = {
     if (!job) return;
     const now = Date.now();
     if (jobReady(job, now)) return;
+    const r0 = recipeById(job.recipeId);
+    if (r0 && isGramProduct(r0.output.product)) {
+      // Real-money products can't be rushed — they must be made the hard way.
+      setMessage("This can't be rushed", "bad");
+      return;
+    }
     const cost = finishNowCost(job, now);
     if (state.cash < cost) {
       setMessage(`Need $${cost.toLocaleString()} to finish now`, "bad");
@@ -789,10 +828,10 @@ export const gameStore = {
     addProduct(r.output.product, r.output.qty);
     state.jobs.splice(idx, 1);
     sfx.play("order");
-    setMessage(
-      `Collected ${r.output.qty} ${PRODUCTS[r.output.product].name}`,
-      "good",
-    );
+    const amount = isGramProduct(r.output.product)
+      ? fmtGrams(r.output.qty)
+      : `${r.output.qty}`;
+    setMessage(`Collected ${amount} ${PRODUCTS[r.output.product].name}`, "good");
     addXp(r.xp);
     changed();
   },
@@ -828,6 +867,58 @@ export const gameStore = {
     state.products[id] = have - n;
     state.cash += def.sellPrice * n;
     sfx.play("sell");
+    changed();
+  },
+
+  // ---- Cash-out: fent/meth grams -> in-game USDC -> withdrawal ------------
+
+  /** Convert all grams of a gram-product into in-game USDC. */
+  cashOut(id: ProductId) {
+    const rate = USDC_PER_GRAM[id];
+    if (!isGramProduct(id) || !rate) return;
+    const grams = haveProduct(id);
+    if (grams <= 0) {
+      setMessage(`No ${PRODUCTS[id].name} to cash out`, "bad");
+      return;
+    }
+    const usdc = grams * rate;
+    state.products[id] = 0;
+    state.usdc = round2(state.usdc + usdc);
+    sfx.play("sell");
+    setMessage(`Cashed out ${fmtGrams(grams)} → $${round2(usdc)} USDC`, "good");
+    changed();
+  },
+
+  setWithdrawWallet(addr: string) {
+    state.withdrawWallet = addr.trim();
+    changed();
+  },
+
+  /** Queue a withdrawal of in-game USDC to the saved wallet (operator pays). */
+  requestWithdrawal(amount: number) {
+    const amt = round2(amount);
+    if (!state.withdrawWallet) {
+      setMessage("Enter a withdrawal wallet first", "bad");
+      return;
+    }
+    if (!(amt >= MIN_WITHDRAW)) {
+      setMessage(`Minimum withdrawal is $${MIN_WITHDRAW} USDC`, "bad");
+      return;
+    }
+    if (amt > state.usdc) {
+      setMessage("Not enough USDC", "bad");
+      return;
+    }
+    state.usdc = round2(state.usdc - amt);
+    state.withdrawals.unshift({
+      id: Date.now(),
+      amount: amt,
+      wallet: state.withdrawWallet,
+      at: Date.now(),
+      status: "pending",
+    });
+    sfx.play("order");
+    setMessage(`Withdrawal of $${amt} USDC requested`, "good");
     changed();
   },
 

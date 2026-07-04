@@ -3,14 +3,18 @@
 import { useState } from "react";
 import { levelForXp } from "../game/levels";
 import {
+  GRAM_PRODUCTS,
   PRODUCTS,
   REAGENTS,
   RECIPES_BY_STATION,
   STATIONS,
+  USDC_PER_GRAM,
 } from "../game/production";
 import {
+  MIN_WITHDRAW,
   STATION_SLOTS,
   finishNowCost,
+  fmtGrams,
   gameStore,
   jobProgress,
 } from "../game/store";
@@ -92,12 +96,14 @@ function JobCell({ job, now }: { job: LabJob; now: number }) {
       ) : (
         <>
           <span className="text-[11px] font-semibold text-[#bcd6c4]">{remaining}</span>
-          <button
-            onClick={() => gameStore.finishJobNow(job.id)}
-            className="rounded-md border border-[#7a5a1a] bg-[#2a2008] px-2 py-0.5 text-[10px] font-bold text-[#f0b23a] transition active:scale-95 hover:bg-[#3a2c0c]"
-          >
-            ⚡ ${cost.toLocaleString()}
-          </button>
+          {!GRAM_PRODUCTS.includes(r.output.product) && (
+            <button
+              onClick={() => gameStore.finishJobNow(job.id)}
+              className="rounded-md border border-[#7a5a1a] bg-[#2a2008] px-2 py-0.5 text-[10px] font-bold text-[#f0b23a] transition active:scale-95 hover:bg-[#3a2c0c]"
+            >
+              ⚡ ${cost.toLocaleString()}
+            </button>
+          )}
         </>
       )}
     </div>
@@ -287,4 +293,112 @@ export function StashPanel() {
 
 export function useLevel(): number {
   return levelForXp(gameStore.getState().xp);
+}
+
+/** Convert fent/meth grams → in-game USDC, then request a payout to a wallet. */
+export function CashOutPanel() {
+  const state = gameStore.getState();
+  const [amount, setAmount] = useState("");
+
+  const withdrawals = state.withdrawals ?? [];
+
+  return (
+    <section className="rounded-2xl border border-[#5a3f82] bg-[#1c1230] p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-sm font-bold">
+          <span className="text-xl">💰</span> Cash Out
+        </h3>
+        <span className="rounded-lg border border-[#3a6b4a] bg-[#0e2a19] px-3 py-1 text-sm font-extrabold text-[#5fe08a]">
+          ${(state.usdc ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC
+        </span>
+      </div>
+
+      {/* Convert grams → USDC */}
+      <div className="mb-3 flex flex-col gap-2">
+        {GRAM_PRODUCTS.map((id) => {
+          const grams = state.products[id] ?? 0;
+          const rate = USDC_PER_GRAM[id] ?? 0;
+          return (
+            <div
+              key={id}
+              className="flex items-center justify-between rounded-xl border border-[#3a2a54] bg-[#241634] p-2"
+            >
+              <div className="flex items-center gap-2">
+                <ProductChip id={id} className="h-8 w-8" />
+                <div className="leading-tight">
+                  <div className="text-xs font-semibold">{PRODUCTS[id].name}</div>
+                  <div className="text-[10px] text-[#a892c4]">
+                    {fmtGrams(grams)} · ${rate}/g
+                  </div>
+                </div>
+              </div>
+              <button
+                disabled={grams <= 0}
+                onClick={() => gameStore.cashOut(id)}
+                className="rounded-lg border border-[#3a6b4a] bg-[#0e2a19] px-3 py-2 text-xs font-bold text-[#5fe08a] transition active:scale-95 enabled:hover:bg-[#123a22] disabled:opacity-30"
+              >
+                +${(grams * rate).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Withdrawal wallet */}
+      <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-[#a892c4]">
+        Withdrawal wallet
+      </label>
+      <input
+        value={state.withdrawWallet}
+        onChange={(e) => gameStore.setWithdrawWallet(e.target.value)}
+        placeholder="Your USDC wallet address"
+        spellCheck={false}
+        className="mb-2 w-full rounded-lg border border-[#3a2a54] bg-[#120a1c] px-3 py-2 text-xs text-white outline-none focus:border-[#8b5cf6]"
+      />
+      <div className="flex gap-2">
+        <input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+          inputMode="decimal"
+          placeholder={`Min $${MIN_WITHDRAW}`}
+          className="w-full rounded-lg border border-[#3a2a54] bg-[#120a1c] px-3 py-2 text-xs text-white outline-none focus:border-[#8b5cf6]"
+        />
+        <button
+          onClick={() => {
+            gameStore.requestWithdrawal(parseFloat(amount) || 0);
+            setAmount("");
+          }}
+          className="shrink-0 rounded-lg bg-[#8b5cf6] px-4 py-2 text-xs font-extrabold text-white transition active:scale-95 hover:bg-[#9d71ff]"
+        >
+          Withdraw
+        </button>
+      </div>
+      <p className="mt-2 text-[10px] leading-snug text-[#8a7aa8]">
+        Withdrawals are reviewed and paid out manually.
+      </p>
+
+      {withdrawals.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5 border-t border-[#3a2a54] pt-3">
+          {withdrawals.slice(0, 5).map((w) => (
+            <li key={w.id} className="flex items-center justify-between text-[11px]">
+              <span className="truncate text-[#c4a5f0]">
+                ${w.amount} → {w.wallet.slice(0, 4)}…{w.wallet.slice(-4)}
+              </span>
+              <span
+                className={
+                  w.status === "paid"
+                    ? "font-bold text-[#5fe08a]"
+                    : w.status === "rejected"
+                      ? "font-bold text-[#ff8a80]"
+                      : "font-bold text-[#f0b23a]"
+                }
+              >
+                {w.status}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
