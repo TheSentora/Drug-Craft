@@ -114,6 +114,15 @@ export interface SaveData {
   withdrawWallet?: string;
   /** Pending/paid withdrawal requests. */
   withdrawals?: Withdrawal[];
+  /** The tree currently being chopped, if any. */
+  chopJob?: ChopJob | null;
+}
+
+/** The single in-progress tree chop (only one at a time). */
+export interface ChopJob {
+  x: number;
+  y: number;
+  startedAt: number;
 }
 
 export interface Withdrawal {

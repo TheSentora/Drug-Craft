@@ -3,14 +3,17 @@
 import { CROPS } from "./crops";
 import { CROP_STAGE_ART, cropSpriteUrl } from "./sprites";
 import {
+  CHOP_SECONDS,
   MAX_PLANTS,
+  chopProgress,
+  chopReady,
   gameStore,
   plantingProgress,
   plantingReady,
   plotPrice,
   plotReadyCount,
 } from "./store";
-import { CropId } from "./types";
+import { ChopJob, CropId } from "./types";
 import {
   Camera,
   CHICKEN_ZONE,
@@ -556,8 +559,10 @@ export class FarmRenderer {
       this.onTileClick(idx);
       return;
     }
-    if (isChoppable(tx, ty, gameStore.getState().choppedTrees)) {
-      gameStore.chopTree(tx, ty);
+    const st = gameStore.getState();
+    const job = st.chopJob;
+    if (isChoppable(tx, ty, st.choppedTrees) || (job && job.x === tx && job.y === ty)) {
+      gameStore.handleTreeClick(tx, ty);
     }
   }
 
@@ -973,6 +978,18 @@ export class FarmRenderer {
       ctx.restore();
     }
 
+    // Progress/READY badge over the tree currently being chopped.
+    if (state.chopJob && !state.choppedTrees.has(`${state.chopJob.x},${state.chopJob.y}`)) {
+      const [csx, csy] = tileToScreen(
+        state.chopJob.x,
+        state.chopJob.y,
+        this.cam,
+        this.viewW,
+        this.viewH,
+      );
+      this.drawChopBadge(csx, csy, state.chopJob, timeNow);
+    }
+
     this.drawButterflies(now);
     this.drawParticles();
     this.drawCloudShadows(w, h);
@@ -1320,6 +1337,44 @@ export class FarmRenderer {
     ["#1a6128", "#277c33", "#2f8f3a", "#3fa04c"],
     ["#2c7d2f", "#3f9e3f", "#54ae48", "#6cc258"],
   ];
+
+  /** Timer/READY badge + progress bar over the tree being chopped. */
+  private drawChopBadge(sx: number, sy: number, job: ChopJob, now: number) {
+    const { ctx } = this;
+    const z = this.cam.zoom;
+    const ready = chopReady(job, now);
+    const p = chopProgress(job, now);
+    const topY = sy - 58 * z;
+
+    const label = ready
+      ? "🌱 READY"
+      : `🪓 ${fmtTime(CHOP_SECONDS * (1 - p))}`;
+    ctx.font = `700 ${8 * z}px ${UI_FONT}`;
+    const pw = ctx.measureText(label).width + 12 * z;
+    const ph = 14 * z;
+    ctx.beginPath();
+    ctx.roundRect(sx - pw / 2, topY - ph, pw, ph, ph / 2);
+    ctx.fillStyle = ready ? "#2fbf52" : "#14241a";
+    ctx.fill();
+    ctx.fillStyle = ready ? "#0a1f10" : "#cfe8d2";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, sx, topY - ph / 2 + 0.5);
+
+    if (!ready) {
+      const bw = 40 * z;
+      const bh = 4 * z;
+      const by = topY + 3 * z;
+      ctx.fillStyle = "#0a1f13";
+      ctx.beginPath();
+      ctx.roundRect(sx - bw / 2, by, bw, bh, bh / 2);
+      ctx.fill();
+      ctx.fillStyle = "#2fbf52";
+      ctx.beginPath();
+      ctx.roundRect(sx - bw / 2, by, bw * p, bh, bh / 2);
+      ctx.fill();
+    }
+  }
 
   private drawTree(sx: number, sy: number, tx = 0, ty = 0) {
     const { ctx } = this;

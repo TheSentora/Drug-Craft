@@ -13,6 +13,7 @@ import {
 } from "./production";
 import { sfx } from "./sfx";
 import {
+  ChopJob,
   CropId,
   LabJob,
   MessageKind,
@@ -24,7 +25,7 @@ import {
   StationId,
   Withdrawal,
 } from "./types";
-import { FIELD_H, FIELD_W, chopReward, isChoppable } from "./world";
+import { FIELD_H, FIELD_W, isChoppable } from "./world";
 
 /** How many jobs can run at once per station. */
 export const STATION_SLOTS: Record<StationId, number> = {
@@ -186,10 +187,54 @@ export interface GameState {
   /** Saved payout wallet. */
   withdrawWallet: string;
   withdrawals: Withdrawal[];
+  /** The single tree being chopped (only one at a time). */
+  chopJob: ChopJob | null;
 }
 
 /** Minimum USDC that can be withdrawn at once. */
 export const MIN_WITHDRAW = 10;
+
+// ---- Tree chopping ---------------------------------------------------------
+
+/** Cash to start chopping a tree. */
+export const CHOP_COST = 50;
+/** Real-time seconds to fell one tree. */
+export const CHOP_SECONDS = 120;
+
+/**
+ * Seed drop weights — cheaper/common crops drop far more often than rare,
+ * expensive ones. `max` caps the (small) random stack size for that crop.
+ */
+const CHOP_SEED_TABLE: Record<CropId, { weight: number; max: number }> = {
+  tobacco: { weight: 42, max: 3 },
+  khat: { weight: 26, max: 3 },
+  cannabis: { weight: 16, max: 2 },
+  shrooms: { weight: 9, max: 2 },
+  coca: { weight: 5, max: 1 },
+  poppy: { weight: 2, max: 1 },
+};
+
+function rollChopSeeds(): { crop: CropId; qty: number } {
+  const entries = Object.entries(CHOP_SEED_TABLE) as [
+    CropId,
+    { weight: number; max: number },
+  ][];
+  const total = entries.reduce((s, [, v]) => s + v.weight, 0);
+  let r = Math.random() * total;
+  for (const [crop, v] of entries) {
+    r -= v.weight;
+    if (r <= 0) return { crop, qty: 1 + Math.floor(Math.random() * v.max) };
+  }
+  return { crop: "tobacco", qty: 1 };
+}
+
+export function chopProgress(job: ChopJob, now: number): number {
+  return Math.min(1, (now - job.startedAt) / (CHOP_SECONDS * 1000));
+}
+
+export function chopReady(job: ChopJob, now: number): boolean {
+  return chopProgress(job, now) >= 1;
+}
 
 function defaultState(): GameState {
   const plots: Plot[] = Array.from({ length: TOTAL_PLOTS }, (_, i) => ({
@@ -213,6 +258,7 @@ function defaultState(): GameState {
     usdc: 0,
     withdrawWallet: "",
     withdrawals: [],
+    chopJob: null,
   };
 }
 
@@ -294,6 +340,7 @@ function buildSave(): SaveData {
     usdc: state.usdc,
     withdrawWallet: state.withdrawWallet,
     withdrawals: state.withdrawals,
+    chopJob: state.chopJob,
   };
 }
 
@@ -366,6 +413,13 @@ function applySave(data: SaveData) {
     usdc: Number.isFinite(data.usdc) ? (data.usdc as number) : 0,
     withdrawWallet: typeof data.withdrawWallet === "string" ? data.withdrawWallet : "",
     withdrawals: Array.isArray(data.withdrawals) ? data.withdrawals : [],
+    chopJob:
+      data.chopJob &&
+      typeof data.chopJob.x === "number" &&
+      typeof data.chopJob.y === "number" &&
+      typeof data.chopJob.startedAt === "number"
+        ? data.chopJob
+        : null,
   };
   orderSeq = state.orders.reduce((m, o) => Math.max(m, o.id), 0) + 1;
   jobSeq = state.jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
@@ -924,15 +978,57 @@ export const gameStore = {
 
   // ---- Chopping trees ----------------------------------------------------
 
-  chopTree(x: number, y: number) {
+  /** Route a click on a choppable tree: start / wait / collect. */
+  handleTreeClick(x: number, y: number) {
+    const job = state.chopJob;
+    if (job) {
+      if (job.x === x && job.y === y) {
+        if (chopReady(job, Date.now())) return this.collectChop();
+        setMessage("Still chopping…", "info");
+      } else {
+        setMessage("You can only chop one tree at a time", "bad");
+      }
+      return;
+    }
+    this.startChop(x, y);
+  },
+
+  /** Pay to begin felling a tree (takes CHOP_SECONDS). */
+  startChop(x: number, y: number) {
+    if (state.chopJob) return;
     if (!isChoppable(x, y, state.choppedTrees)) return;
+    if (state.cash < CHOP_COST) {
+      setMessage(`Need $${CHOP_COST} to chop a tree`, "bad");
+      return;
+    }
+    state.cash -= CHOP_COST;
+    state.chopJob = { x, y, startedAt: Date.now() };
+    sfx.play("plant");
+    setMessage(`Chopping a tree… −$${CHOP_COST}`, "info");
+    changed();
+  },
+
+  /** Finish the current chop: fell the tree and drop random seeds. */
+  collectChop() {
+    const job = state.chopJob;
+    if (!job || !chopReady(job, Date.now())) return;
+    const { x, y } = job;
+    state.chopJob = null;
     state.choppedTrees.add(`${x},${y}`);
-    const reward = chopReward(x, y);
-    state.cash += reward;
-    sfx.play("unlock");
+    const drop = rollChopSeeds();
+    state.seeds[drop.crop] = (state.seeds[drop.crop] ?? 0) + drop.qty;
+    sfx.play("harvest");
     fxQueue.push({ kind: "chop", tx: x, ty: y });
-    fxQueue.push({ kind: "text", tx: x, ty: y, text: `+$${reward}` });
-    setMessage(`Cleared a tree +$${reward}`, "good");
+    fxQueue.push({
+      kind: "text",
+      tx: x,
+      ty: y,
+      text: `+${drop.qty} ${CROPS[drop.crop].name} seed${drop.qty > 1 ? "s" : ""}`,
+    });
+    setMessage(
+      `Tree down! +${drop.qty} ${CROPS[drop.crop].name} seed${drop.qty > 1 ? "s" : ""}`,
+      "good",
+    );
     addXp(4);
     changed();
   },

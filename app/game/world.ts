@@ -226,11 +226,6 @@ export function isChoppable(
   );
 }
 
-/** Cash paid for chopping a tree (further out pays a bit more). */
-export function chopReward(x: number, y: number): number {
-  return 18 + farmDistance(x, y) * 8;
-}
-
 export function tileToScreen(
   tx: number,
   ty: number,
