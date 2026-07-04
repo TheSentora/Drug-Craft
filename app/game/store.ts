@@ -190,6 +190,8 @@ let state: GameState = defaultState();
 let version = 0;
 let initialized = false;
 let fxQueue: FxEvent[] = [];
+/** When true, the intro is being replayed (e.g. by an admin) — don't re-gift. */
+let introReplay = false;
 
 const listeners = new Set<() => void>();
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -456,10 +458,23 @@ export const gameStore = {
   completeWelcome() {
     if (state.welcomed) return;
     state.welcomed = true;
+    // A replay (admin re-watching) shouldn't hand out the gift again.
+    if (introReplay) {
+      introReplay = false;
+      changed();
+      return;
+    }
     state.cash += WELCOME_GIFT;
     sfx.play("levelup");
     setMessage(`🎁 Welcome gift +$${WELCOME_GIFT.toLocaleString()}`, "good");
     changed();
+  },
+
+  /** Re-show Chikkie's welcome intro (for testing / admin). No gift on replay. */
+  replayWelcome() {
+    introReplay = true;
+    state.welcomed = false;
+    notify();
   },
 
   /** Single entry point for clicking a plot on the board. */

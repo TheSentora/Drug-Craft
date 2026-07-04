@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { cloud } from "../game/cloud";
+import { gameStore } from "../game/store";
 
 const ADMIN_EMAIL = (
   process.env.NEXT_PUBLIC_ADMIN_EMAIL || "electroolite@gmail.com"
@@ -50,6 +51,17 @@ export default function AccountControl() {
             >
               📊 Admin dashboard
             </a>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                gameStore.replayWelcome();
+                setMenu(false);
+              }}
+              className="block w-full px-3 py-2 text-left text-xs font-semibold text-[#5fe08a] hover:bg-[#1a2c20]"
+            >
+              🐔 Replay intro
+            </button>
           )}
           <button
             onClick={() => {
