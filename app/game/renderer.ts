@@ -2,7 +2,14 @@
 
 import { CROPS } from "./crops";
 import { CROP_STAGE_ART, cropSpriteUrl } from "./sprites";
-import { gameStore, isReady, plantProgress, plotPrice } from "./store";
+import {
+  MAX_PLANTS,
+  gameStore,
+  plantingProgress,
+  plantingReady,
+  plotPrice,
+  plotReadyCount,
+} from "./store";
 import { CropId } from "./types";
 import {
   Camera,
@@ -21,6 +28,7 @@ import {
   TILE_THICK,
   TILE_W,
   WORLD_PAN,
+  WORLD_SCALE,
   DECOR_TREES,
   fenceSegments,
   isChoppable,
@@ -478,7 +486,8 @@ export class FarmRenderer {
   ): boolean {
     if (!tile) return false;
     const [sx, sy] = tileToScreen(tile.x, tile.y, this.cam, this.viewW, this.viewH);
-    const z = this.cam.zoom;
+    // Buildings are drawn scaled by WORLD_SCALE, so the hit box must match.
+    const z = this.cam.zoom * WORLD_SCALE;
     const w = baseW * z;
     const h = w * aspect;
     const top = sy + 8 * z - h;
@@ -911,7 +920,7 @@ export class FarmRenderer {
       objects.push({ depth: c.x + c.y, x: c.x, y: c.y, kind: "chicken", chicken: c });
     }
     state.plots.forEach((p, i) => {
-      if (p.unlocked && p.crop != null) {
+      if (p.unlocked && p.plants.length > 0) {
         const { x, y } = plotTile(i);
         objects.push({ depth: x + y, x, y, kind: "crop", plotIndex: i });
       }
@@ -920,10 +929,16 @@ export class FarmRenderer {
 
     for (const o of objects) {
       const [sx, sy] = tileToScreen(o.x, o.y, this.cam, this.viewW, this.viewH);
+      if (o.kind === "crop") {
+        if (o.plotIndex != null) this.drawPlot(sx, sy, state.plots[o.plotIndex], timeNow);
+        continue;
+      }
+      // Decor/buildings are scaled up around their anchor to match bigger tiles.
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.scale(WORLD_SCALE, WORLD_SCALE);
+      ctx.translate(-sx, -sy);
       switch (o.kind) {
-        case "crop":
-          if (o.plotIndex != null) this.drawCrop(sx, sy, state.plots[o.plotIndex], timeNow);
-          break;
         case "fence":
           if (o.fence) this.drawFence(sx, sy, o.fence);
           break;
@@ -955,6 +970,7 @@ export class FarmRenderer {
           if (o.chicken) this.drawChicken(sx, sy, o.chicken, now);
           break;
       }
+      ctx.restore();
     }
 
     this.drawButterflies(now);
@@ -1095,7 +1111,7 @@ export class FarmRenderer {
       this.diamondPath(sx, sy, hw, hh);
       ctx.fillStyle = "rgba(255,255,255,0.15)";
       ctx.fill();
-      if (plot && plot.unlocked && plot.crop == null) {
+      if (plot && plot.unlocked && plot.plants.length < MAX_PLANTS) {
         const def = CROPS[state.selectedCrop];
         const sprite = getCropSprite(state.selectedCrop);
         const ghostStage = getStageSprite(state.selectedCrop, 1);
@@ -1139,78 +1155,118 @@ export class FarmRenderer {
     ctx.restore();
   }
 
-  private drawCrop(
+  private drawOnePlant(
     sx: number,
     sy: number,
-    plot: ReturnType<typeof gameStore.getState>["plots"][number],
+    plant: { crop: CropId; plantedAt: number; grow: number },
     timeNow: number,
+    scale: number,
   ) {
-    if (plot.crop == null) return;
     const { ctx } = this;
     const z = this.cam.zoom;
-    const def = CROPS[plot.crop];
-    const p = plantProgress(plot, timeNow);
-    const ready = isReady(plot, timeNow);
-    const sprite = getCropSprite(plot.crop);
-
-    const size = TILE_H * (0.9 + 0.85 * p) * z;
-    const baseY = sy + 5 * z;
-    const pulse = ready ? 6 + 5 * Math.sin(timeNow / 280) : 0;
+    const def = CROPS[plant.crop];
+    const p = plantingProgress(plant, timeNow);
+    const ready = plantingReady(plant, timeNow);
+    const sprite = getCropSprite(plant.crop);
+    const size = TILE_H * (0.9 + 0.85 * p) * z * scale;
 
     ctx.save();
     if (ready) {
       ctx.shadowColor = "rgba(120,255,140,0.9)";
-      ctx.shadowBlur = pulse;
+      ctx.shadowBlur = 5 + 4 * Math.sin(timeNow / 280);
     }
-    const stage = getStageSprite(plot.crop, p);
+    const stage = getStageSprite(plant.crop, p);
     if (stage) {
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(stage.img, sx - size / 2, baseY - size, size, size);
+      ctx.drawImage(stage.img, sx - size / 2, sy - size, size, size);
     } else if (sprite && sprite.ok) {
       const fw = sprite.img.naturalWidth / sprite.frames;
       const fh = sprite.img.naturalHeight;
       const frame = Math.min(sprite.frames - 1, Math.floor(p * sprite.frames));
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(sprite.img, frame * fw, 0, fw, fh, sx - size / 2, baseY - size, size, size);
+      ctx.drawImage(sprite.img, frame * fw, 0, fw, fh, sx - size / 2, sy - size, size, size);
     } else {
       ctx.font = `${size * 0.8}px ${EMOJI_FONT}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "alphabetic";
       ctx.globalAlpha = 0.5 + 0.5 * p;
-      ctx.fillText(def.emoji, sx, baseY);
+      ctx.fillText(def.emoji, sx, sy);
       ctx.globalAlpha = 1;
     }
     ctx.restore();
+  }
 
-    const topY = baseY - size - 4 * z;
-    if (ready) {
-      const pw = 34 * z;
-      const ph = 12 * z;
+  /** Draw a plot's up-to-3 plants + one status label (READY / time range). */
+  private drawPlot(
+    sx: number,
+    sy: number,
+    plot: ReturnType<typeof gameStore.getState>["plots"][number],
+    timeNow: number,
+  ) {
+    const { ctx } = this;
+    const z = this.cam.zoom;
+    const hw = (TILE_W / 2) * z;
+    const hh = (TILE_H / 2) * z;
+    const n = plot.plants.length;
+    if (n === 0) return;
+
+    // Sub-positions within the tile (back-to-front) + scale so 3 fit.
+    const spots: [number, number][] =
+      n === 1
+        ? [[0, 0.05]]
+        : n === 2
+          ? [[-0.34, 0.12], [0.34, 0.12]]
+          : [[0, -0.26], [-0.4, 0.16], [0.4, 0.16]];
+    const scale = n === 1 ? 1 : 0.78;
+
+    plot.plants
+      .map((pl, i) => ({ pl, i }))
+      .sort((a, b) => spots[a.i][1] - spots[b.i][1])
+      .forEach(({ pl, i }) => {
+        this.drawOnePlant(
+          sx + spots[i][0] * hw,
+          sy + spots[i][1] * hh + 5 * z,
+          pl,
+          timeNow,
+          scale,
+        );
+      });
+
+    // One status label above the tile.
+    const readyCount = plotReadyCount(plot, timeNow);
+    const growing = plot.plants.filter((pl) => !plantingReady(pl, timeNow));
+    const topY = sy - hh - 8 * z;
+
+    if (readyCount > 0) {
+      const label = readyCount > 1 ? `READY ×${readyCount}` : "READY";
+      ctx.font = `700 ${8 * z}px ${UI_FONT}`;
+      const pw = ctx.measureText(label).width + 10 * z;
+      const ph = 13 * z;
       ctx.beginPath();
       ctx.roundRect(sx - pw / 2, topY - ph, pw, ph, ph / 2);
       ctx.fillStyle = "#2fbf52";
       ctx.fill();
-      ctx.fillStyle = "#fff";
-      ctx.font = `700 ${7 * z}px ${UI_FONT}`;
+      ctx.fillStyle = "#0a1f10";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("READY", sx, topY - ph / 2 + 0.5);
-    } else {
-      const bw = 30 * z;
-      const bh = 5 * z;
-      ctx.beginPath();
-      ctx.roundRect(sx - bw / 2, topY - bh, bw, bh, bh / 2);
-      ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.roundRect(sx - bw / 2, topY - bh, bw * p, bh, bh / 2);
-      ctx.fillStyle = def.color;
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.fillText(label, sx, topY - ph / 2 + 0.5);
+    } else if (growing.length > 0) {
+      // "min–max" remaining time.
+      const rem = growing.map((pl) => pl.grow * (1 - plantingProgress(pl, timeNow)));
+      const lo = Math.min(...rem);
+      const hi = Math.max(...rem);
+      const label = lo === hi ? fmtTime(lo) : `${fmtTime(lo)}–${fmtTime(hi)}`;
       ctx.font = `600 ${8 * z}px ${UI_FONT}`;
+      const pw = ctx.measureText(label).width + 10 * z;
+      const ph = 12 * z;
+      ctx.beginPath();
+      ctx.roundRect(sx - pw / 2, topY - ph, pw, ph, ph / 2);
+      ctx.fillStyle = "#14241a";
+      ctx.fill();
+      ctx.fillStyle = "#cfe8d2";
       ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillText(fmtTime(def.growSeconds * (1 - p)), sx, topY - bh - 1 * z);
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, sx, topY - ph / 2 + 0.5);
     }
   }
 

@@ -5,9 +5,11 @@
  * Tiles use a 2:1 diamond. The "field" is the block of tillable plots; the rest
  * of the island is grass with a pond, a farmhouse, a barn and trees.
  */
-export const TILE_W = 64;
-export const TILE_H = 32;
-export const TILE_THICK = 7; // little vertical side on each ground tile (2.5D)
+export const TILE_W = 80;
+export const TILE_H = 40;
+export const TILE_THICK = 8; // little vertical side on each ground tile (2.5D)
+/** Buildings/decor scale by this so they stay proportional to bigger tiles. */
+export const WORLD_SCALE = TILE_W / 64;
 
 export const FIELD_W = 5;
 export const FIELD_H = 5;

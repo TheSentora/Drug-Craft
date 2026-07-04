@@ -42,7 +42,7 @@ export default function AuthForm({ onDone }: { onDone?: () => void }) {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
         autoComplete="email"
-        className="mb-2 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-400/60"
+        className="mb-2 w-full rounded-xl border border-[#2a4133] bg-[#0d1811] px-3 py-2.5 text-sm text-white outline-none focus:border-[#2fbf52]"
       />
       <input
         type="password"
@@ -52,32 +52,32 @@ export default function AuthForm({ onDone }: { onDone?: () => void }) {
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password (min 6 chars)"
         autoComplete={mode === "login" ? "current-password" : "new-password"}
-        className="mb-3 w-full rounded-xl border border-white/10 bg-black/50 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-400/60"
+        className="mb-3 w-full rounded-xl border border-[#2a4133] bg-[#0d1811] px-3 py-2.5 text-sm text-white outline-none focus:border-[#2fbf52]"
       />
 
-      {error && <p className="mb-2 text-xs font-semibold text-rose-400">{error}</p>}
-      {notice && <p className="mb-2 text-xs font-semibold text-emerald-300">{notice}</p>}
+      {error && <p className="mb-2 text-xs font-semibold text-[#ff6b5e]">{error}</p>}
+      {notice && <p className="mb-2 text-xs font-semibold text-[#5fe08a]">{notice}</p>}
 
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-lime-500 px-4 py-3 text-base font-extrabold text-black shadow-lg transition active:scale-[0.98] enabled:hover:brightness-110 disabled:opacity-50"
+        className="w-full rounded-xl bg-[#2fbf52] px-4 py-3 text-base font-extrabold text-[#0a1f10] transition active:scale-[0.98] enabled:hover:bg-[#3ad964] disabled:opacity-50"
       >
         {busy ? "…" : mode === "login" ? "Log in & play" : "Sign up"}
       </button>
 
-      <div className="mt-3 text-center text-xs text-white/60">
+      <div className="mt-3 text-center text-xs text-[#bcd6c4]">
         {mode === "signup" ? (
           <>
             Already have an account?{" "}
-            <button type="button" onClick={() => setMode("login")} className="font-bold text-emerald-300 hover:underline">
+            <button type="button" onClick={() => setMode("login")} className="font-bold text-[#5fe08a] hover:underline">
               Log in
             </button>
           </>
         ) : (
           <>
             New here?{" "}
-            <button type="button" onClick={() => setMode("signup")} className="font-bold text-emerald-300 hover:underline">
+            <button type="button" onClick={() => setMode("signup")} className="font-bold text-[#5fe08a] hover:underline">
               Sign up
             </button>
           </>

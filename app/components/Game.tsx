@@ -11,7 +11,7 @@ import { CROP_LIST, CROPS } from "../game/crops";
 import { levelForXp, levelProgress } from "../game/levels";
 import { FarmRenderer } from "../game/renderer";
 import { sfx } from "../game/sfx";
-import { gameStore, isReady } from "../game/store";
+import { gameStore, growRange, plotReadyCount } from "../game/store";
 import { CropId } from "../game/types";
 import { cloud } from "../game/cloud";
 import AccountControl from "./AccountControl";
@@ -24,6 +24,11 @@ function fmtGrow(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
+}
+
+function fmtGrowRange(baseSeconds: number): string {
+  const [lo, hi] = growRange(baseSeconds);
+  return `${fmtGrow(lo)}–${fmtGrow(hi)}`;
 }
 
 /** Crop icon: the hand-made SVG, falling back to the emoji if it fails to load. */
@@ -76,7 +81,7 @@ function FarmCanvas({
   }, [onLabClick, onLab2Click]);
 
   const btn =
-    "flex h-10 w-10 items-center justify-center rounded-xl bg-black/50 text-xl font-bold text-white ring-1 ring-white/15 backdrop-blur transition active:scale-95 hover:bg-black/70";
+    "flex h-10 w-10 items-center justify-center rounded-lg border border-[#2a4133] bg-[#132018] text-xl font-bold text-white transition active:scale-95 hover:bg-[#1b2c22]";
 
   return (
     <div className="no-select absolute inset-0 touch-none overflow-hidden bg-[#0c241a]">
@@ -121,12 +126,12 @@ function DockButton({
   return (
     <button
       onClick={onClick}
-      className={`relative flex min-w-[58px] flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
+      className={`relative flex min-w-[58px] flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
         active
-          ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/50"
+          ? "bg-[#1f5233] text-white"
           : accent
-            ? "bg-emerald-600 text-white"
-            : "text-emerald-100/80 hover:bg-white/10"
+            ? "bg-[#2fbf52] text-[#0a1f10]"
+            : "text-[#bcd6c4] hover:bg-[#22362a]"
       }`}
     >
       <span className="text-xl leading-none">{icon}</span>
@@ -206,16 +211,16 @@ export default function Game() {
   const msg = state.message;
   const msgColor =
     msg?.kind === "good"
-      ? "bg-emerald-500/90"
+      ? "bg-[#2fbf52] text-[#0a1f10]"
       : msg?.kind === "bad"
-        ? "bg-rose-500/90"
-        : "bg-slate-700/90";
+        ? "bg-[#e0463c] text-white"
+        : "bg-[#243b2c] text-white";
 
   const deliverableCount = state.orders.filter((o) =>
     gameStore.canDeliver(o),
   ).length;
   const now = Date.now();
-  const readyToHarvest = state.plots.some((p) => isReady(p, now));
+  const readyToHarvest = state.plots.some((p) => plotReadyCount(p, now) > 0);
 
   const panelTitle =
     panel === "seeds" ? "🌱 Seeds" : panel === "market" ? "🏪 Market" : "📦 Orders";
@@ -227,32 +232,30 @@ export default function Game() {
 
       {/* Compact top bar */}
       <header className="safe-t pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-2 sm:p-3">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-black/50 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-[#2a4133] bg-[#132018] px-3 py-1.5">
           <span className="text-xl">🌿</span>
           <h1 className="hidden text-lg font-extrabold tracking-tight sm:block">
-            Drug<span className="text-emerald-400">Craft</span>
+            Drug<span className="text-[#4ade80]">Craft</span>
           </h1>
           <div className="flex flex-col justify-center">
-            <span className="text-[10px] font-bold text-emerald-200/80">
-              Lv {level}
-            </span>
-            <div className="h-1.5 w-14 overflow-hidden rounded-full bg-emerald-950 sm:w-20">
+            <span className="text-[10px] font-bold text-[#bcd6c4]">Lv {level}</span>
+            <div className="h-1.5 w-14 overflow-hidden rounded-full bg-[#0a1f13] sm:w-20">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-lime-400 transition-[width] duration-300"
+                className="h-full rounded-full bg-[#2fbf52] transition-[width] duration-300"
                 style={{ width: `${Math.round(prog.pct * 100)}%` }}
               />
             </div>
           </div>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-1.5 rounded-2xl bg-black/50 px-2 py-1.5 ring-1 ring-white/10 backdrop-blur">
-          <div className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/30">
+        <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border border-[#2a4133] bg-[#132018] px-2 py-1.5">
+          <div className="rounded-lg border border-[#245e39] bg-[#0e2a19] px-3 py-1 text-sm font-bold text-[#5fe08a]">
             💵 ${state.cash.toLocaleString()}
           </div>
           <AccountControl />
           <button
             onClick={() => setMuted(sfx.toggle())}
-            className="rounded-lg px-2 py-1.5 text-base transition active:scale-95 hover:bg-white/10"
+            className="rounded-lg px-2 py-1.5 text-base transition active:scale-95 hover:bg-[#22362a]"
             title={muted ? "Unmute sounds" : "Mute sounds"}
           >
             {muted ? "🔇" : "🔊"}
@@ -261,7 +264,7 @@ export default function Game() {
             onClick={() => {
               if (confirm("Reset your farm and start over?")) gameStore.reset();
             }}
-            className="rounded-lg px-2 py-1.5 text-base text-emerald-300/60 transition active:scale-95 hover:bg-rose-500/10 hover:text-rose-300"
+            className="rounded-lg px-2 py-1.5 text-base text-[#9db8a5] transition active:scale-95 hover:bg-[#3a2020] hover:text-[#ff8a80]"
             title="Reset save"
           >
             ↺
@@ -283,12 +286,12 @@ export default function Game() {
       {/* Active panel drawer (bottom sheet on mobile, side card on desktop) */}
       {panel && (
         <div className="absolute inset-x-0 bottom-[4.75rem] z-30 mx-auto w-full max-w-md px-2 sm:left-3 sm:right-auto sm:mx-0 sm:w-80 sm:max-w-none sm:px-0">
-          <div className="dc-pop overflow-hidden rounded-2xl bg-black/70 ring-1 ring-white/10 shadow-2xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-              <h2 className="text-sm font-bold text-emerald-100">{panelTitle}</h2>
+          <div className="dc-pop overflow-hidden rounded-2xl border border-[#2a4133] bg-[#101a13] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2a4133] bg-[#152219] px-3 py-2">
+              <h2 className="text-sm font-bold text-white">{panelTitle}</h2>
               <button
                 onClick={() => setPanel(null)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9db8a5] transition hover:bg-[#22362a] hover:text-white"
               >
                 ✕
               </button>
@@ -307,27 +310,27 @@ export default function Game() {
                         onClick={() => gameStore.setSelectedCrop(c.id)}
                         className={`relative flex flex-col items-start rounded-xl border p-2 text-left transition active:scale-95 ${
                           selected
-                            ? "border-emerald-400 bg-emerald-500/15 ring-1 ring-emerald-400/50"
-                            : "border-emerald-900/70 bg-black/20 hover:border-emerald-700"
+                            ? "border-[#4ade80] bg-[#123021]"
+                            : "border-[#243b2c] bg-[#0d1811] hover:border-[#3a6b4a]"
                         } ${locked ? "cursor-not-allowed opacity-45" : ""}`}
                       >
                         <div className="flex w-full items-center justify-between">
                           <CropIcon id={c.id} emoji={c.emoji} className="h-8 w-8 object-contain" />
                           {locked ? (
-                            <span className="text-[10px] font-bold text-amber-400">
+                            <span className="text-[10px] font-bold text-[#f0b23a]">
                               Lv {c.unlockLevel}
                             </span>
                           ) : (
                             <span
-                              className={`text-[11px] font-bold ${affordable ? "text-emerald-300" : "text-rose-400"}`}
+                              className={`text-[11px] font-bold ${affordable ? "text-[#5fe08a]" : "text-[#ff6b5e]"}`}
                             >
                               ${c.seedCost}
                             </span>
                           )}
                         </div>
-                        <span className="mt-1 text-xs font-semibold">{c.name}</span>
-                        <span className="text-[10px] text-emerald-300/50">
-                          {fmtGrow(c.growSeconds)} · sells ${c.sellPrice}
+                        <span className="mt-1 text-xs font-semibold text-white">{c.name}</span>
+                        <span className="text-[10px] text-[#7f9c88]">
+                          {fmtGrowRange(c.growSeconds)} · sells ${c.sellPrice}
                         </span>
                       </button>
                     );
@@ -340,12 +343,12 @@ export default function Game() {
                   <button
                     onClick={() => gameStore.sellAll()}
                     disabled={stashValue <= 0}
-                    className="mb-2 w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white shadow transition active:scale-95 enabled:hover:bg-emerald-500 disabled:opacity-40"
+                    className="mb-2 w-full rounded-lg bg-[#2fbf52] px-3 py-2 text-sm font-bold text-[#0a1f10] transition active:scale-95 enabled:hover:bg-[#3ad964] disabled:opacity-40"
                   >
                     Sell all (${stashValue.toLocaleString()})
                   </button>
                   {inventoryEntries.length === 0 ? (
-                    <p className="px-1 py-4 text-center text-xs text-emerald-300/40">
+                    <p className="px-1 py-4 text-center text-xs text-[#7f9c88]">
                       Empty.
                     </p>
                   ) : (
@@ -355,20 +358,20 @@ export default function Game() {
                         return (
                           <li
                             key={id}
-                            className="flex items-center justify-between rounded-xl bg-black/25 px-2.5 py-2"
+                            className="flex items-center justify-between rounded-xl border border-[#243b2c] bg-[#0d1811] px-2.5 py-2"
                           >
                             <div className="flex items-center gap-2">
                               <CropIcon id={id} emoji={c.emoji} className="h-7 w-7 object-contain" />
                               <div className="leading-tight">
-                                <div className="text-xs font-semibold">{c.name}</div>
-                                <div className="text-[10px] text-emerald-300/50">
+                                <div className="text-xs font-semibold text-white">{c.name}</div>
+                                <div className="text-[10px] text-[#7f9c88]">
                                   ×{qty} · ${c.sellPrice} ea
                                 </div>
                               </div>
                             </div>
                             <button
                               onClick={() => gameStore.sell(id, qty)}
-                              className="rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/30 transition active:scale-95 hover:bg-emerald-500/25"
+                              className="rounded-lg border border-[#245e39] bg-[#0e2a19] px-3 py-2 text-xs font-bold text-[#5fe08a] transition active:scale-95 hover:bg-[#123a22]"
                             >
                               Sell ${(c.sellPrice * qty).toLocaleString()}
                             </button>
@@ -385,7 +388,7 @@ export default function Game() {
                   {state.orders.map((order) => {
                     const deliverable = gameStore.canDeliver(order);
                     return (
-                      <li key={order.id} className="rounded-xl bg-black/25 p-2.5 ring-1 ring-white/5">
+                      <li key={order.id} className="rounded-xl border border-[#243b2c] bg-[#0d1811] p-2.5">
                         <ul className="mb-2 flex flex-col gap-1">
                           {order.items.map((it) => {
                             const c = CROPS[it.crop];
@@ -397,7 +400,7 @@ export default function Game() {
                                   <CropIcon id={it.crop} emoji={c.emoji} className="h-5 w-5 object-contain" />
                                   <span className="font-semibold">{c.name}</span>
                                 </span>
-                                <span className={`font-bold ${ok ? "text-emerald-300" : "text-rose-300"}`}>
+                                <span className={`font-bold ${ok ? "text-[#5fe08a]" : "text-[#ff8a80]"}`}>
                                   {Math.min(have, it.qty)}/{it.qty}
                                 </span>
                               </li>
@@ -405,22 +408,22 @@ export default function Game() {
                           })}
                         </ul>
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-amber-300">
+                          <span className="text-[11px] font-bold text-[#f0b23a]">
                             💵 ${order.cash.toLocaleString()}{" "}
-                            <span className="text-emerald-300">+{order.xp} XP</span>
+                            <span className="text-[#5fe08a]">+{order.xp} XP</span>
                           </span>
                           <span className="flex items-center gap-1">
                             <button
                               onClick={() => gameStore.rerollOrder(order.id)}
                               title="Ask for a different order"
-                              className="rounded-md px-2 py-1.5 text-[11px] text-emerald-300/60 transition active:scale-95 hover:bg-white/10 hover:text-emerald-200"
+                              className="rounded-md px-2 py-1.5 text-[11px] text-[#9db8a5] transition active:scale-95 hover:bg-[#22362a] hover:text-white"
                             >
                               ↻
                             </button>
                             <button
                               onClick={() => gameStore.deliver(order.id)}
                               disabled={!deliverable}
-                              className="rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-bold text-black shadow transition active:scale-95 enabled:hover:bg-amber-400 disabled:opacity-35"
+                              className="rounded-lg bg-[#f0b23a] px-3 py-1.5 text-[11px] font-bold text-[#1a1204] transition active:scale-95 enabled:hover:bg-[#ffc74e] disabled:opacity-35"
                             >
                               Deliver
                             </button>
@@ -438,7 +441,7 @@ export default function Game() {
 
       {/* Bottom dock */}
       <nav className="safe-b pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center p-2">
-        <div className="pointer-events-auto flex items-center gap-1 rounded-2xl bg-black/55 p-1 ring-1 ring-white/10 backdrop-blur">
+        <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-[#2a4133] bg-[#132018] p-1">
           <DockButton
             icon={
               <CropIcon
@@ -467,8 +470,10 @@ export default function Game() {
           />
           <button
             onClick={() => gameStore.harvestAll()}
-            className={`flex min-w-[58px] flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-bold text-white transition active:scale-95 ${
-              readyToHarvest ? "bg-emerald-600 hover:bg-emerald-500" : "bg-white/10 hover:bg-white/15"
+            className={`flex min-w-[58px] flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
+              readyToHarvest
+                ? "bg-[#2fbf52] text-[#0a1f10] hover:bg-[#3ad964]"
+                : "bg-[#22362a] text-[#bcd6c4] hover:bg-[#2b4335]"
             }`}
           >
             <span className="text-xl leading-none">🧺</span>

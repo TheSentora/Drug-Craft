@@ -24,11 +24,18 @@ export interface CropDef {
   color: string;
 }
 
+export interface Planting {
+  crop: CropId;
+  /** Epoch ms when planted. */
+  plantedAt: number;
+  /** Randomized grow time in seconds for this specific plant. */
+  grow: number;
+}
+
 export interface Plot {
   unlocked: boolean;
-  crop: CropId | null;
-  /** Epoch ms when the current crop was planted. */
-  plantedAt: number | null;
+  /** Up to MAX_PLANTS growing independently in this tile. */
+  plants: Planting[];
 }
 
 export type MessageKind = "info" | "good" | "bad";

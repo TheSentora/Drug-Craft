@@ -23,30 +23,30 @@ export default function AccountControl() {
   const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL;
   const dot =
     status === "synced"
-      ? "bg-emerald-400"
+      ? "bg-[#2fbf52]"
       : status === "syncing"
-        ? "bg-amber-400"
+        ? "bg-[#f0b23a]"
         : status === "error"
-          ? "bg-rose-400"
-          : "bg-white/40";
+          ? "bg-[#ff6b5e]"
+          : "bg-[#5c7566]";
 
   return (
     <div className="relative">
       <button
         onClick={() => setMenu((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs font-bold transition active:scale-95 hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-lg border border-[#2a4133] bg-[#0e2a19] px-2.5 py-1.5 text-xs font-bold text-white transition active:scale-95 hover:bg-[#123a22]"
         title={`Signed in as ${user.email} (${status})`}
       >
         <span className={`h-2 w-2 rounded-full ${dot}`} />
         <span className="max-w-[90px] truncate">{user.email.split("@")[0]}</span>
       </button>
       {menu && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#0d1a12] py-1 shadow-2xl">
-          <div className="truncate px-3 py-1.5 text-[10px] text-white/40">{user.email}</div>
+        <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-[#2a4133] bg-[#101a13] py-1 shadow-2xl">
+          <div className="truncate px-3 py-1.5 text-[10px] text-[#7f9c88]">{user.email}</div>
           {isAdmin && (
             <a
               href="/admin"
-              className="block px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-white/5"
+              className="block px-3 py-2 text-xs font-semibold text-[#5fe08a] hover:bg-[#1a2c20]"
             >
               📊 Admin dashboard
             </a>
@@ -56,7 +56,7 @@ export default function AccountControl() {
               cloud.signOut();
               setMenu(false);
             }}
-            className="block w-full px-3 py-2 text-left text-xs font-semibold text-rose-300 hover:bg-rose-500/10"
+            className="block w-full px-3 py-2 text-left text-xs font-semibold text-[#ff8a80] hover:bg-[#3a2020]"
           >
             Sign out
           </button>

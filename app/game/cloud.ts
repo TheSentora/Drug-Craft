@@ -116,6 +116,13 @@ export const cloud = {
       const u = data.session.user;
       setUser({ id: u.id, email: u.email ?? "" });
     }
+    // Strip the confirmation/login token out of the address bar once it's used.
+    if (
+      typeof window !== "undefined" &&
+      /access_token|refresh_token|[?#&]type=/.test(location.hash + location.search)
+    ) {
+      history.replaceState(null, "", location.pathname);
+    }
     authChecked = true;
     notify();
     if (data.session?.user) await pullAndReconcile();

@@ -63,26 +63,26 @@ export default function AdminPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-extrabold">
-              📊 DrugCraft <span className="text-emerald-400">Admin</span>
+              📊 DrugCraft <span className="text-[#4ade80]">Admin</span>
             </h1>
-            <p className="text-sm text-white/40">Every player's stats.</p>
+            <p className="text-sm text-[#7f9c88]">Every player's stats.</p>
           </div>
           <Link
             href="/"
-            className="rounded-xl bg-white/10 px-4 py-2 text-sm font-bold transition hover:bg-white/20"
+            className="rounded-xl border border-[#2a4133] bg-[#1a2c20] px-4 py-2 text-sm font-bold transition hover:bg-[#22362a]"
           >
             ← Game
           </Link>
         </div>
 
         {error && (
-          <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-6 text-center text-rose-200">
+          <div className="rounded-2xl border border-[#5a2420] bg-[#2a1210] p-6 text-center text-[#ff8a80]">
             {error}
           </div>
         )}
 
         {!error && !rows && (
-          <div className="py-16 text-center text-white/40">Loading…</div>
+          <div className="py-16 text-center text-[#7f9c88]">Loading…</div>
         )}
 
         {rows && (
@@ -99,21 +99,21 @@ export default function AdminPage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-2xl bg-black/40 p-4 ring-1 ring-white/10"
+                  className="rounded-2xl border border-[#2a4133] bg-[#101a13] p-4"
                 >
-                  <div className="text-[11px] uppercase tracking-wide text-white/40">
+                  <div className="text-[11px] uppercase tracking-wide text-[#7f9c88]">
                     {label}
                   </div>
-                  <div className="text-xl font-extrabold text-emerald-300">
+                  <div className="text-xl font-extrabold text-[#5fe08a]">
                     {value}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="overflow-x-auto rounded-2xl bg-black/40 ring-1 ring-white/10">
+            <div className="overflow-x-auto rounded-2xl border border-[#2a4133] bg-[#101a13]">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-white/10 text-[11px] uppercase tracking-wide text-white/40">
+                <thead className="border-b border-[#2a4133] text-[11px] uppercase tracking-wide text-[#7f9c88]">
                   <tr>
                     <th className="px-4 py-3">Player</th>
                     <th className="px-4 py-3">Level</th>
@@ -127,23 +127,23 @@ export default function AdminPage() {
                 <tbody>
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-white/40">
+                      <td colSpan={7} className="px-4 py-8 text-center text-[#7f9c88]">
                         No players yet.
                       </td>
                     </tr>
                   )}
                   {rows.map((r) => (
-                    <tr key={r.id} className="border-b border-white/5 last:border-0">
+                    <tr key={r.id} className="border-b border-[#1c2c22] last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-semibold">{r.username}</div>
-                        <div className="text-[11px] text-white/40">{r.email}</div>
+                        <div className="text-[11px] text-[#7f9c88]">{r.email}</div>
                       </td>
-                      <td className="px-4 py-3 font-bold text-emerald-300">{r.level}</td>
+                      <td className="px-4 py-3 font-bold text-[#5fe08a]">{r.level}</td>
                       <td className="px-4 py-3">${(r.cash || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-white/60">{(r.xp || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-[#9db8a5]">{(r.xp || 0).toLocaleString()}</td>
                       <td className="px-4 py-3">{r.lab2_unlocked ? "✅" : "—"}</td>
-                      <td className="px-4 py-3 text-white/60">{r.trees_chopped || 0}</td>
-                      <td className="px-4 py-3 text-white/50">{timeAgo(r.updated_at)}</td>
+                      <td className="px-4 py-3 text-[#9db8a5]">{r.trees_chopped || 0}</td>
+                      <td className="px-4 py-3 text-[#7f9c88]">{timeAgo(r.updated_at)}</td>
                     </tr>
                   ))}
                 </tbody>

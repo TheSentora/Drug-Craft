@@ -15,6 +15,7 @@ import {
   LabJob,
   MessageKind,
   Order,
+  Planting,
   Plot,
   ProductId,
   SaveData,
@@ -69,15 +70,37 @@ export function plotPrice(unlockedCount: number): number {
   return Math.floor(100 * Math.pow(1.6, bought));
 }
 
-/** 0..1 growth progress of a plot at time `now`. */
-export function plantProgress(plot: Plot, now: number): number {
-  if (!plot.crop || plot.plantedAt == null) return 0;
-  const grow = CROPS[plot.crop].growSeconds * 1000;
-  return Math.min(1, (now - plot.plantedAt) / grow);
+/** Up to this many plants can grow in one tile, at independent rates. */
+export const MAX_PLANTS = 3;
+const GROW_MIN_FACTOR = 0.66;
+const GROW_MAX_FACTOR = 1.6;
+
+/** The est. grow-time range (seconds) shown for a crop. */
+export function growRange(baseSeconds: number): [number, number] {
+  return [
+    Math.round(baseSeconds * GROW_MIN_FACTOR),
+    Math.round(baseSeconds * GROW_MAX_FACTOR),
+  ];
 }
 
-export function isReady(plot: Plot, now: number): boolean {
-  return plot.crop != null && plantProgress(plot, now) >= 1;
+function randGrow(baseSeconds: number): number {
+  return Math.round(
+    baseSeconds * (GROW_MIN_FACTOR + Math.random() * (GROW_MAX_FACTOR - GROW_MIN_FACTOR)),
+  );
+}
+
+/** 0..1 growth of a single planting. */
+export function plantingProgress(pl: Planting, now: number): number {
+  return Math.min(1, (now - pl.plantedAt) / (pl.grow * 1000));
+}
+
+export function plantingReady(pl: Planting, now: number): boolean {
+  return plantingProgress(pl, now) >= 1;
+}
+
+/** How many plants in this plot are ready to harvest. */
+export function plotReadyCount(plot: Plot, now: number): number {
+  return plot.plants.reduce((n, pl) => n + (plantingReady(pl, now) ? 1 : 0), 0);
 }
 
 // ---- Orders ----------------------------------------------------------------
@@ -138,8 +161,7 @@ export interface GameState {
 function defaultState(): GameState {
   const plots: Plot[] = Array.from({ length: TOTAL_PLOTS }, (_, i) => ({
     unlocked: i < INITIAL_UNLOCKED,
-    crop: null,
-    plantedAt: null,
+    plants: [],
   }));
   return {
     cash: START_CASH,
@@ -248,7 +270,7 @@ function topUpOrders() {
 
 function welcomeBack() {
   const now = Date.now();
-  const readyPlots = state.plots.filter((p) => isReady(p, now)).length;
+  const readyPlots = state.plots.filter((p) => plotReadyCount(p, now) > 0).length;
   const readyJobs = state.jobs.filter((j) => jobReady(j, now)).length;
   if (readyPlots > 0 || readyJobs > 0) {
     const bits: string[] = [];
@@ -261,14 +283,24 @@ function welcomeBack() {
 /** Replace the whole game state from a SaveData (local or cloud). */
 function applySave(data: SaveData) {
   const plots: Plot[] = Array.from({ length: TOTAL_PLOTS }, (_, i) => {
-    const p = data.plots?.[i];
-    return p
-      ? {
-          unlocked: !!p.unlocked,
-          crop: p.crop ?? null,
-          plantedAt: p.plantedAt ?? null,
-        }
-      : { unlocked: i < INITIAL_UNLOCKED, crop: null, plantedAt: null };
+    const p = data.plots?.[i] as
+      | (Partial<Plot> & { crop?: CropId | null; plantedAt?: number | null })
+      | undefined;
+    if (!p) return { unlocked: i < INITIAL_UNLOCKED, plants: [] };
+    let plants: Planting[] = [];
+    if (Array.isArray(p.plants)) {
+      plants = p.plants
+        .filter((q) => q && CROPS[q.crop] && typeof q.plantedAt === "number")
+        .map((q) => ({
+          crop: q.crop,
+          plantedAt: q.plantedAt,
+          grow: typeof q.grow === "number" ? q.grow : CROPS[q.crop].growSeconds,
+        }));
+    } else if (p.crop && CROPS[p.crop] && typeof p.plantedAt === "number") {
+      // migrate old single-crop plots
+      plants = [{ crop: p.crop, plantedAt: p.plantedAt, grow: CROPS[p.crop].growSeconds }];
+    }
+    return { unlocked: !!p.unlocked, plants };
   });
   const jobs = Array.isArray(data.jobs) ? data.jobs.filter(validJob) : [];
   state = {
@@ -416,8 +448,8 @@ export const gameStore = {
     const plot = state.plots[index];
     if (!plot) return;
     if (!plot.unlocked) return this.buyPlot(index);
-    if (plot.crop == null) return this.plant(index);
-    if (isReady(plot, Date.now())) return this.harvest(index);
+    if (plotReadyCount(plot, Date.now()) > 0) return this.harvest(index);
+    if (plot.plants.length < MAX_PLANTS) return this.plant(index);
     setMessage("Still growing…", "info");
   },
 
@@ -440,7 +472,7 @@ export const gameStore = {
 
   plant(index: number) {
     const plot = state.plots[index];
-    if (!plot || !plot.unlocked || plot.crop != null) return;
+    if (!plot || !plot.unlocked || plot.plants.length >= MAX_PLANTS) return;
     const def = CROPS[state.selectedCrop];
     const level = levelForXp(state.xp);
     if (level < def.unlockLevel) {
@@ -452,49 +484,66 @@ export const gameStore = {
       return;
     }
     state.cash -= def.seedCost;
-    plot.crop = def.id;
-    plot.plantedAt = Date.now();
+    plot.plants.push({
+      crop: def.id,
+      plantedAt: Date.now(),
+      grow: randGrow(def.growSeconds),
+    });
     sfx.play("plant");
     changed();
   },
 
+  /** Harvest the ready plants in one plot (leaves any still growing). */
   harvest(index: number) {
     const plot = state.plots[index];
-    if (!plot || plot.crop == null) return;
-    if (!isReady(plot, Date.now())) return;
-    const def = CROPS[plot.crop];
-    state.inventory[def.id] = (state.inventory[def.id] ?? 0) + 1;
-    plot.crop = null;
-    plot.plantedAt = null;
+    if (!plot) return;
+    const now = Date.now();
+    let xp = 0;
+    let count = 0;
+    plot.plants = plot.plants.filter((pl) => {
+      if (plantingReady(pl, now)) {
+        const def = CROPS[pl.crop];
+        state.inventory[def.id] = (state.inventory[def.id] ?? 0) + 1;
+        xp += def.xp;
+        count++;
+        return false;
+      }
+      return true;
+    });
+    if (count === 0) return;
     sfx.play("harvest");
     fxQueue.push({ kind: "sparkle", plotIndex: index });
-    fxQueue.push({ kind: "text", plotIndex: index, text: `+${def.xp} XP` });
-    addXp(def.xp);
+    fxQueue.push({ kind: "text", plotIndex: index, text: `+${xp} XP` });
+    addXp(xp);
     changed();
   },
 
-  /** Harvest every ready plot at once. */
+  /** Harvest every ready plant across all plots. */
   harvestAll() {
     const now = Date.now();
     let count = 0;
     let xp = 0;
     state.plots.forEach((plot, i) => {
-      if (plot.crop != null && isReady(plot, now)) {
-        const def = CROPS[plot.crop];
-        state.inventory[def.id] = (state.inventory[def.id] ?? 0) + 1;
-        xp += def.xp;
-        plot.crop = null;
-        plot.plantedAt = null;
-        fxQueue.push({ kind: "sparkle", plotIndex: i });
-        count++;
-      }
+      let plotHit = false;
+      plot.plants = plot.plants.filter((pl) => {
+        if (plantingReady(pl, now)) {
+          const def = CROPS[pl.crop];
+          state.inventory[def.id] = (state.inventory[def.id] ?? 0) + 1;
+          xp += def.xp;
+          count++;
+          plotHit = true;
+          return false;
+        }
+        return true;
+      });
+      if (plotHit) fxQueue.push({ kind: "sparkle", plotIndex: i });
     });
     if (count === 0) {
       setMessage("Nothing ready to harvest yet", "info");
       return;
     }
     sfx.play("harvest");
-    setMessage(`Harvested ${count} plot${count > 1 ? "s" : ""} +${xp} XP`, "good");
+    setMessage(`Harvested ${count} plant${count > 1 ? "s" : ""} +${xp} XP`, "good");
     addXp(xp);
     changed();
   },

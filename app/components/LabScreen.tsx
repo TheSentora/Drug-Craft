@@ -40,27 +40,19 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#0a1410] text-white">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-70"
-        style={{
-          background:
-            "radial-gradient(1200px 600px at 20% -10%, rgba(52,211,153,0.14), transparent), radial-gradient(1000px 700px at 100% 120%, rgba(96,165,250,0.12), transparent)",
-        }}
-      />
-
-      <header className="relative z-10 flex items-center justify-between border-b border-white/10 bg-black/30 px-5 py-3 backdrop-blur">
+      <header className="relative z-10 flex items-center justify-between border-b border-[#2a4133] bg-[#101a13] px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🧪</span>
           <h1 className="text-lg font-extrabold tracking-tight">
-            The <span className="text-emerald-400">Lab</span>
+            The <span className="text-[#4ade80]">Lab</span>
           </h1>
-          <span className="ml-2 rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-bold text-emerald-300 ring-1 ring-emerald-400/30">
+          <span className="ml-2 rounded-lg border border-[#245e39] bg-[#0e2a19] px-3 py-1 text-sm font-bold text-[#5fe08a]">
             💵 ${state.cash.toLocaleString()}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="rounded-xl bg-white/10 px-4 py-2 text-sm font-bold transition active:scale-95 hover:bg-white/20"
+          className="rounded-xl border border-[#2a4133] bg-[#1a2c20] px-4 py-2 text-sm font-bold transition active:scale-95 hover:bg-[#22362a]"
         >
           ← Back to farm
         </button>
@@ -70,7 +62,7 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="flex flex-col gap-4">
             {/* Extraction bench */}
-            <section className="rounded-2xl bg-black/40 p-4 ring-1 ring-white/10">
+            <section className="rounded-2xl border border-[#2a4133] bg-[#101a13] p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
                 <span className="text-xl">🔬</span> Extraction Bench
               </h3>
@@ -80,13 +72,13 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
                   return (
                     <div
                       key={ex.id}
-                      className="flex items-center justify-between rounded-xl bg-black/25 p-2"
+                      className="flex items-center justify-between rounded-xl border border-[#243b2c] bg-[#0d1811] p-2"
                     >
                       <div className="flex items-center gap-2">
                         <CropChip id={ex.crop} />
                         <div className="leading-tight">
                           <div className="text-xs font-semibold">{CROPS[ex.crop].name}</div>
-                          <div className="flex items-center gap-1 text-[10px] text-white/45">
+                          <div className="flex items-center gap-1 text-[10px] text-[#7f9c88]">
                             <span>have {have}</span>
                             <span>→</span>
                             {ex.outputs.map((o) => (
@@ -102,7 +94,7 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
                         <button
                           disabled={have < 1}
                           onClick={() => gameStore.extract(ex.crop)}
-                          className="rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-bold text-emerald-200 ring-1 ring-emerald-400/30 transition active:scale-95 enabled:hover:bg-emerald-500/25 disabled:opacity-30"
+                          className="rounded-lg border border-[#245e39] bg-[#0e2a19] px-2.5 py-1.5 text-xs font-bold text-[#5fe08a] transition active:scale-95 enabled:hover:bg-[#123a22] disabled:opacity-30"
                         >
                           {ex.label}
                         </button>
@@ -110,7 +102,7 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
                           disabled={have < 2}
                           onClick={() => gameStore.extractAll(ex.crop)}
                           title="Extract all"
-                          className="rounded-lg bg-white/5 px-2 py-1.5 text-xs font-bold text-white/70 transition active:scale-95 enabled:hover:bg-white/10 disabled:opacity-30"
+                          className="rounded-lg border border-[#2a4133] bg-[#1a2c20] px-2 py-1.5 text-xs font-bold text-[#bcd6c4] transition active:scale-95 enabled:hover:bg-[#22362a] disabled:opacity-30"
                         >
                           all
                         </button>

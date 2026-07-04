@@ -60,18 +60,18 @@ function JobCell({ job, now }: { job: LabJob; now: number }) {
   return (
     <div
       className={`relative flex flex-col items-center gap-1 rounded-xl border p-2 transition ${
-        ready ? "border-emerald-400/70 bg-emerald-500/10" : "border-white/10 bg-black/30"
+        ready ? "border-[#4ade80] bg-[#123021]" : "border-[#243b2c] bg-[#0d1811]"
       }`}
     >
       <div className="relative h-16 w-16">
         <svg viewBox="0 0 64 64" className="h-16 w-16 -rotate-90">
-          <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="5" />
+          <circle cx="32" cy="32" r={R} fill="none" stroke="#243b2c" strokeWidth="5" />
           <circle
             cx="32"
             cy="32"
             r={R}
             fill="none"
-            stroke={ready ? "#34d399" : PRODUCTS[r.output.product].color}
+            stroke={ready ? "#2fbf52" : PRODUCTS[r.output.product].color}
             strokeWidth="5"
             strokeLinecap="round"
             strokeDasharray={C}
@@ -85,16 +85,16 @@ function JobCell({ job, now }: { job: LabJob; now: number }) {
       {ready ? (
         <button
           onClick={() => gameStore.collectJob(job.id)}
-          className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-bold text-black shadow transition active:scale-95 hover:bg-emerald-400"
+          className="rounded-lg bg-[#2fbf52] px-3 py-1 text-xs font-bold text-[#0a1f10] transition active:scale-95 hover:bg-[#3ad964]"
         >
           Collect
         </button>
       ) : (
         <>
-          <span className="text-[11px] font-semibold text-white/70">{remaining}</span>
+          <span className="text-[11px] font-semibold text-[#bcd6c4]">{remaining}</span>
           <button
             onClick={() => gameStore.finishJobNow(job.id)}
-            className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-400/30 transition active:scale-95 hover:bg-amber-500/25"
+            className="rounded-md border border-[#7a5a1a] bg-[#2a2008] px-2 py-0.5 text-[10px] font-bold text-[#f0b23a] transition active:scale-95 hover:bg-[#3a2c0c]"
           >
             ⚡ ${cost.toLocaleString()}
           </button>
@@ -121,13 +121,13 @@ export function StationPanel({
   const anyReady = jobs.some((j) => jobProgress(j, now) >= 1);
 
   return (
-    <section className="rounded-2xl bg-black/40 p-4 ring-1 ring-white/10">
+    <section className="rounded-2xl border border-[#2a4133] bg-[#101a13] p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{def.emoji}</span>
           <h3 className="text-sm font-bold text-white">{def.name}</h3>
         </div>
-        <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold text-white/50">
+        <span className="rounded-md border border-[#243b2c] bg-[#0d1811] px-2 py-1 text-[10px] font-bold text-[#7f9c88]">
           {jobs.length}/{slots}
         </span>
       </div>
@@ -144,16 +144,16 @@ export function StationPanel({
               title={r.inputs.map((i) => `${i.qty} ${PRODUCTS[i.product].name}`).join(" + ")}
               className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 ${
                 can
-                  ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
-                  : "cursor-not-allowed border-white/10 bg-black/20 text-white/35"
+                  ? "border-[#245e39] bg-[#0e2a19] text-[#5fe08a] hover:bg-[#123a22]"
+                  : "cursor-not-allowed border-[#243b2c] bg-[#0d1811] text-[#5c7566]"
               }`}
             >
               <ProductChip id={r.output.product} className="h-5 w-5" />
               <span>{r.name}</span>
               {locked ? (
-                <span className="text-amber-400">Lv {r.unlockLevel}</span>
+                <span className="text-[#f0b23a]">Lv {r.unlockLevel}</span>
               ) : (
-                <span className="flex items-center gap-1 text-white/45">
+                <span className="flex items-center gap-1 text-[#7f9c88]">
                   {r.inputs.map((i) => (
                     <span key={i.product} className="inline-flex items-center gap-0.5">
                       {i.qty}
@@ -169,7 +169,7 @@ export function StationPanel({
         {anyReady && (
           <button
             onClick={() => gameStore.collectAllJobs()}
-            className="ml-auto rounded-lg bg-emerald-500 px-2.5 py-1.5 text-xs font-bold text-black transition active:scale-95 hover:bg-emerald-400"
+            className="ml-auto rounded-lg bg-[#2fbf52] px-2.5 py-1.5 text-xs font-bold text-[#0a1f10] transition active:scale-95 hover:bg-[#3ad964]"
           >
             Collect ready
           </button>
@@ -183,7 +183,7 @@ export function StationPanel({
         {Array.from({ length: empties }).map((_, i) => (
           <div
             key={`e${i}`}
-            className="flex h-[118px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/15 text-2xl text-white/15"
+            className="flex h-[118px] items-center justify-center rounded-xl border border-dashed border-[#243b2c] bg-[#0b140e] text-2xl text-[#3a5244]"
           >
             +
           </div>
@@ -202,23 +202,23 @@ export function SuppliesPanel({
   const state = gameStore.getState();
   const list = only ? REAGENTS.filter((r) => only.includes(r.id)) : REAGENTS;
   return (
-    <section className="rounded-2xl bg-black/40 p-4 ring-1 ring-white/10">
+    <section className="rounded-2xl border border-[#2a4133] bg-[#101a13] p-4">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
         <span className="text-xl">🏷️</span> Supplies
       </h3>
       <div className="flex flex-col gap-2">
         {list.map((rg) => (
-          <div key={rg.id} className="flex items-center justify-between rounded-xl bg-black/25 p-2">
+          <div key={rg.id} className="flex items-center justify-between rounded-xl border border-[#243b2c] bg-[#0d1811] p-2">
             <div className="flex items-center gap-2">
               <ProductChip id={rg.id} className="h-8 w-8" />
               <div className="leading-tight">
                 <div className="text-xs font-semibold">{rg.name}</div>
-                <div className="text-[10px] text-white/45">own {state.products[rg.id] ?? 0}</div>
+                <div className="text-[10px] text-[#7f9c88]">own {state.products[rg.id] ?? 0}</div>
               </div>
             </div>
             <button
               onClick={() => gameStore.buyReagent(rg.id, 1)}
-              className="rounded-lg bg-amber-500/90 px-3 py-1.5 text-xs font-bold text-black transition active:scale-95 hover:bg-amber-400"
+              className="rounded-lg bg-[#f0b23a] px-3 py-1.5 text-xs font-bold text-[#1a1204] transition active:scale-95 hover:bg-[#ffc74e]"
             >
               Buy ${rg.buyPrice}
             </button>
@@ -239,7 +239,7 @@ export function StashPanel() {
     0,
   );
   return (
-    <section className="rounded-2xl bg-black/40 p-4 ring-1 ring-white/10">
+    <section className="rounded-2xl border border-[#2a4133] bg-[#101a13] p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold">
           <span className="text-xl">📦</span> Product Stash
@@ -247,32 +247,32 @@ export function StashPanel() {
         <button
           onClick={() => entries.forEach((id) => gameStore.sellProduct(id, state.products[id] ?? 0))}
           disabled={total <= 0}
-          className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white transition active:scale-95 enabled:hover:bg-emerald-500 disabled:opacity-30"
+          className="rounded-lg bg-[#2fbf52] px-3 py-1 text-xs font-bold text-[#0a1f10] transition active:scale-95 enabled:hover:bg-[#3ad964] disabled:opacity-30"
         >
           Sell all (${total.toLocaleString()})
         </button>
       </div>
       {entries.length === 0 ? (
-        <p className="py-3 text-center text-xs text-white/35">Empty.</p>
+        <p className="py-3 text-center text-xs text-[#5c7566]">Empty.</p>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {entries.map((id) => {
             const def = PRODUCTS[id];
             const qty = state.products[id] ?? 0;
             return (
-              <li key={id} className="flex items-center justify-between rounded-xl bg-black/25 px-2.5 py-2">
+              <li key={id} className="flex items-center justify-between rounded-xl border border-[#243b2c] bg-[#0d1811] px-2.5 py-2">
                 <div className="flex items-center gap-2">
                   <ProductChip id={id} className="h-7 w-7" />
                   <div className="leading-tight">
                     <div className="text-xs font-semibold">{def.name}</div>
-                    <div className="text-[10px] text-white/45">
+                    <div className="text-[10px] text-[#7f9c88]">
                       ×{qty} · ${def.sellPrice.toLocaleString()} ea
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => gameStore.sellProduct(id, qty)}
-                  className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-200 ring-1 ring-emerald-400/30 transition active:scale-95 hover:bg-emerald-500/25"
+                  className="rounded-lg border border-[#245e39] bg-[#0e2a19] px-3 py-1.5 text-xs font-bold text-[#5fe08a] transition active:scale-95 hover:bg-[#123a22]"
                 >
                   Sell ${(def.sellPrice * qty).toLocaleString()}
                 </button>

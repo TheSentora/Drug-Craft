@@ -21,30 +21,22 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
   const cashOk = state.cash >= LAB2_COST;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#100a18] text-white">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(1100px 600px at 15% -10%, rgba(167,139,250,0.22), transparent), radial-gradient(900px 700px at 100% 120%, rgba(96,165,250,0.14), transparent)",
-        }}
-      />
-
-      <header className="relative z-10 flex items-center justify-between border-b border-white/10 bg-black/30 px-5 py-3 backdrop-blur">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#120a1c] text-white">
+      <header className="relative z-10 flex items-center justify-between border-b border-[#3a2a54] bg-[#1c1230] px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="text-2xl">⚗️</span>
           <h1 className="text-lg font-extrabold tracking-tight">
-            Synthetic <span className="text-violet-400">Lab</span>
+            Synthetic <span className="text-[#b794f6]">Lab</span>
           </h1>
           {unlocked && (
-            <span className="ml-2 rounded-full bg-violet-500/15 px-3 py-1 text-sm font-bold text-violet-200 ring-1 ring-violet-400/30">
+            <span className="ml-2 rounded-lg border border-[#5a3f82] bg-[#2a1840] px-3 py-1 text-sm font-bold text-[#c4a5f0]">
               💵 ${state.cash.toLocaleString()}
             </span>
           )}
         </div>
         <button
           onClick={onClose}
-          className="rounded-xl bg-white/10 px-4 py-2 text-sm font-bold transition active:scale-95 hover:bg-white/20"
+          className="rounded-xl border border-[#3a2a54] bg-[#241634] px-4 py-2 text-sm font-bold transition active:scale-95 hover:bg-[#2e1c42]"
         >
           ← Back to farm
         </button>
@@ -66,31 +58,31 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="w-full max-w-2xl">
-              <div className="rounded-3xl border border-violet-400/20 bg-black/40 p-8 text-center shadow-[0_0_60px_rgba(167,139,250,0.15)] backdrop-blur">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-500/15 text-5xl ring-1 ring-violet-400/30">
+              <div className="rounded-2xl border border-[#3a2a54] bg-[#1c1230] p-8 text-center shadow-2xl">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl border border-[#5a3f82] bg-[#2a1840] text-5xl">
                   ⚗️
                 </div>
                 <h2 className="text-2xl font-extrabold">Synthetic Lab</h2>
-                <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
+                <p className="mx-auto mt-2 max-w-md text-sm text-[#a892c4]">
                   Make Meth and Fentanyl.
                 </p>
 
                 <div className="mt-6 flex items-center justify-center gap-3">
                   <span
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold ${
                       levelOk
-                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30"
-                        : "bg-white/5 text-white/50 ring-white/10"
+                        ? "border-[#245e39] bg-[#0e2a19] text-[#5fe08a]"
+                        : "border-[#3a2a54] bg-[#241634] text-[#a892c4]"
                     }`}
                   >
                     {levelOk ? "✓" : "🔒"} Level {LAB2_UNLOCK_LEVEL}
-                    <span className="text-white/40">(you: {level})</span>
+                    <span className="text-[#7a6a94]">(you: {level})</span>
                   </span>
                   <span
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold ${
                       cashOk
-                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30"
-                        : "bg-white/5 text-white/50 ring-white/10"
+                        ? "border-[#245e39] bg-[#0e2a19] text-[#5fe08a]"
+                        : "border-[#3a2a54] bg-[#241634] text-[#a892c4]"
                     }`}
                   >
                     {cashOk ? "✓" : "💵"} ${LAB2_COST.toLocaleString()}
@@ -100,7 +92,7 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={() => gameStore.unlockLab2()}
                   disabled={!levelOk || !cashOk}
-                  className="mt-6 w-full rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-3.5 text-base font-extrabold text-white shadow-lg transition active:scale-[0.98] enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="mt-6 w-full rounded-2xl bg-[#8b5cf6] px-6 py-3.5 text-base font-extrabold text-white transition active:scale-[0.98] enabled:hover:bg-[#9d71ff] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {levelOk
                     ? cashOk
