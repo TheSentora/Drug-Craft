@@ -4,7 +4,7 @@ import { useState } from "react";
 import { cloud } from "../game/cloud";
 
 export default function AuthForm({ onDone }: { onDone?: () => void }) {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,18 +67,18 @@ export default function AuthForm({ onDone }: { onDone?: () => void }) {
       </button>
 
       <div className="mt-3 text-center text-xs text-white/60">
-        {mode === "login" ? (
+        {mode === "signup" ? (
           <>
-            New here?{" "}
-            <button type="button" onClick={() => setMode("signup")} className="font-bold text-emerald-300 hover:underline">
-              Create an account
+            Already have an account?{" "}
+            <button type="button" onClick={() => setMode("login")} className="font-bold text-emerald-300 hover:underline">
+              Log in
             </button>
           </>
         ) : (
           <>
-            Have an account?{" "}
-            <button type="button" onClick={() => setMode("login")} className="font-bold text-emerald-300 hover:underline">
-              Log in
+            New here?{" "}
+            <button type="button" onClick={() => setMode("signup")} className="font-bold text-emerald-300 hover:underline">
+              Sign up
             </button>
           </>
         )}

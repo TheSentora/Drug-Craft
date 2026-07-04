@@ -242,32 +242,13 @@ export interface StationDef {
   id: StationId;
   name: string;
   emoji: string;
-  blurb: string;
   color: string;
 }
 
 export const STATIONS: StationDef[] = [
-  {
-    id: "incubator",
-    name: "Drying Incubator",
-    emoji: "🌡️",
-    blurb: "Dry buds and leaves into cured product.",
-    color: "#e0a54a",
-  },
-  {
-    id: "cocaine",
-    name: "Refinery",
-    emoji: "🧫",
-    blurb: "Process coca leaves with reagents.",
-    color: "#7fb0e6",
-  },
-  {
-    id: "synthesis",
-    name: "Synthesis Bench",
-    emoji: "⚗️",
-    blurb: "Advanced opioid synthesis.",
-    color: "#b98ad6",
-  },
+  { id: "incubator", name: "Drying Incubator", emoji: "🌡️", color: "#e0a54a" },
+  { id: "cocaine", name: "Refinery", emoji: "🧫", color: "#7fb0e6" },
+  { id: "synthesis", name: "Synthesis Bench", emoji: "⚗️", color: "#b98ad6" },
 ];
 
 export const RECIPES_BY_STATION: Record<StationId, Recipe[]> = {

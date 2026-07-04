@@ -178,7 +178,7 @@ export default function Game() {
 
   if (!mounted || (cloud.enabled && !cloud.ready())) {
     return (
-      <main className="flex min-h-[100dvh] items-center justify-center bg-[#0f1a12] text-emerald-100">
+      <main className="flex h-full w-full items-center justify-center bg-[#0f1a12] text-emerald-100">
         <div className="text-center">
           <div className="text-4xl">🌱</div>
           <p className="mt-3 text-sm text-emerald-300/70">Loading farm…</p>
@@ -221,7 +221,7 @@ export default function Game() {
     panel === "seeds" ? "🌱 Seeds" : panel === "market" ? "🏪 Market" : "📦 Orders";
 
   return (
-    <main className="relative h-[100dvh] w-screen select-none overflow-hidden bg-[#0c241a] text-emerald-50">
+    <main className="relative h-full w-full select-none overflow-hidden bg-[#0c241a] text-emerald-50">
       {/* Full-screen farm world */}
       <FarmCanvas onLabClick={openLab} onLab2Click={openLab2} />
 
@@ -346,7 +346,7 @@ export default function Game() {
                   </button>
                   {inventoryEntries.length === 0 ? (
                     <p className="px-1 py-4 text-center text-xs text-emerald-300/40">
-                      Your stash is empty. Harvest some crops!
+                      Empty.
                     </p>
                   ) : (
                     <ul className="flex flex-col gap-1.5">

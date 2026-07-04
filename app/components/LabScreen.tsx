@@ -113,10 +113,7 @@ function StationPanel({ station, now, level }: { station: StationId; now: number
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{def.emoji}</span>
-          <div>
-            <h3 className="text-sm font-bold text-white">{def.name}</h3>
-            <p className="text-[11px] text-white/45">{def.blurb}</p>
-          </div>
+          <h3 className="text-sm font-bold text-white">{def.name}</h3>
         </div>
         <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-bold text-white/50">
           {jobs.length}/{slots}
@@ -241,12 +238,9 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
           <div className="flex flex-col gap-4">
             {/* Extraction bench */}
             <section className="rounded-2xl bg-black/40 p-4 ring-1 ring-white/10">
-              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
                 <span className="text-xl">🔬</span> Extraction Bench
               </h3>
-              <p className="mb-3 text-[11px] text-white/45">
-                Break harvested crops down into raw materials.
-              </p>
               <div className="flex flex-col gap-2">
                 {EXTRACTIONS.map((ex) => {
                   const have = state.inventory[ex.crop] ?? 0;
@@ -341,7 +335,7 @@ export default function LabScreen({ onClose }: { onClose: () => void }) {
               </div>
               {stashEntries.length === 0 ? (
                 <p className="py-3 text-center text-xs text-white/35">
-                  No products yet. Process some crops!
+                  Empty.
                 </p>
               ) : (
                 <ul className="flex flex-col gap-1.5">

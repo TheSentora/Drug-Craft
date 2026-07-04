@@ -345,14 +345,18 @@ export class FarmRenderer {
   private resize() {
     const parent = this.canvas.parentElement;
     if (!parent) return;
-    const rect = parent.getBoundingClientRect();
+    // offsetWidth/Height ignore CSS transforms — correct even when the app is
+    // rotated to landscape on a portrait phone (getBoundingClientRect wouldn't).
+    const cw = parent.offsetWidth;
+    const ch = parent.offsetHeight;
+    if (cw < 2 || ch < 2) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.cssW = rect.width;
-    this.cssH = rect.height;
-    this.canvas.width = Math.round(rect.width * dpr);
-    this.canvas.height = Math.round(rect.height * dpr);
-    this.canvas.style.width = `${rect.width}px`;
-    this.canvas.style.height = `${rect.height}px`;
+    this.cssW = cw;
+    this.cssH = ch;
+    this.canvas.width = Math.round(cw * dpr);
+    this.canvas.height = Math.round(ch * dpr);
+    this.canvas.style.width = `${cw}px`;
+    this.canvas.style.height = `${ch}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Center the world in the whole viewport; UI floats on top as drawers.
@@ -373,7 +377,18 @@ export class FarmRenderer {
 
   // ---- Input ----------------------------------------------------------------
 
+  private isRotated(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 850px) and (orientation: portrait)").matches
+    );
+  }
+
   private localPoint(e: PointerEvent | WheelEvent): [number, number] {
+    if (this.isRotated()) {
+      // App is rotated 90° CW: screen (x,y) → canvas-local (y, innerWidth − x).
+      return [e.clientY, window.innerWidth - e.clientX];
+    }
     const r = this.canvas.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   }

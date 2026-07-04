@@ -31,6 +31,29 @@ body {
   padding-top: env(safe-area-inset-top);
 }
 
+/* App frame: normally full-viewport. */
+.app-frame {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* On a portrait phone, rotate the whole app 90° so it plays in landscape.
+   In actual landscape the media query is off → native rendering (no transform,
+   no pointer maths needed). Canvas pointer/size code handles the rotated case. */
+@media (max-width: 850px) and (orientation: portrait) {
+  .app-frame {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vh;
+    height: 100vw;
+    transform-origin: top left;
+    transform: translateX(100vw) rotate(90deg);
+  }
+}
+
 /* The game canvas / board should never select text on rapid clicks */
 .no-select {
   -webkit-user-select: none;

@@ -4,18 +4,8 @@ import { levelForXp } from "../game/levels";
 import { LAB2_COST, LAB2_UNLOCK_LEVEL, gameStore } from "../game/store";
 
 const FUTURE = [
-  {
-    emoji: "🧊",
-    name: "Methamphetamine",
-    blurb: "High-purity crystal from precursor reagents.",
-    tag: "#7fd0ff",
-  },
-  {
-    emoji: "☠️",
-    name: "Fentanyl",
-    blurb: "Ultra-potent synthetic — tiny batches, huge value.",
-    tag: "#ff8a9b",
-  },
+  { emoji: "🧊", name: "Methamphetamine", tag: "#7fd0ff" },
+  { emoji: "☠️", name: "Fentanyl", tag: "#ff8a9b" },
 ];
 
 export default function SyntheticLab({ onClose }: { onClose: () => void }) {
@@ -70,10 +60,7 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
           /* -------- Unlocked interior (nothing functional yet) -------- */
           <div className="w-full max-w-4xl">
             <div className="mb-6 text-center">
-              <h2 className="text-2xl font-extrabold">Advanced Synthesis Facility</h2>
-              <p className="mt-1 text-sm text-white/50">
-                Your high-end lab is built. New synthesis lines are being tooled up.
-              </p>
+              <h2 className="text-2xl font-extrabold">Synthetic Lab</h2>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {FUTURE.map((f) => (
@@ -94,7 +81,6 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm text-white/55">{f.blurb}</p>
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                     <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-violet-500/60 to-transparent" />
                   </div>
@@ -109,10 +95,9 @@ export default function SyntheticLab({ onClose }: { onClose: () => void }) {
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-500/15 text-5xl ring-1 ring-violet-400/30">
                 ⚗️
               </div>
-              <h2 className="text-2xl font-extrabold">Build the Synthetic Lab</h2>
+              <h2 className="text-2xl font-extrabold">Synthetic Lab</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-white/55">
-                A high-end synthesis facility for the hard stuff — crystal meth and
-                fentanyl — worth many times your street crops.
+                Make Meth and Fentanyl.
               </p>
 
               {/* Preview of what unlocks */}

@@ -3,8 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "DrugCraft — Grow Your Empire",
-  description:
-    "A Hay Day–style farming game. Plant, grow and sell tobacco, cannabis, coca and more to build your farming empire.",
+  description: "A farming game — grow tobacco, cannabis, coca and more.",
 };
 
 export const viewport: Viewport = {
