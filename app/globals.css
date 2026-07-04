@@ -60,13 +60,14 @@ body {
   user-select: none;
 }
 
-/* Custom mouse.png cursor: hide the native pointer everywhere for mouse users
-   (the CustomCursor follower draws the replacement). Touch is left untouched. */
+/* Custom cursor: the native pointer IS the mouse image (no lag, no double
+   cursor). Capped at 128px by browsers, so we use a trimmed 97x128 copy.
+   Touch devices have no pointer and ignore this. */
 @media (pointer: fine) {
   *,
   *::before,
   *::after {
-    cursor: none !important;
+    cursor: url(/sprites/cursor.png) 52 0, auto !important;
   }
 }
 

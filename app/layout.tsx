@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Caveat } from "next/font/google";
-import CustomCursor from "./components/CustomCursor";
 import "./globals.css";
 
 // Handwriting font for Chikkie's welcome book.
@@ -35,10 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={handwriting.variable}>
-      <body>
-        {children}
-        <CustomCursor />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
