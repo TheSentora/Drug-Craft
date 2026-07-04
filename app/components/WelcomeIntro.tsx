@@ -54,12 +54,12 @@ function rollLoot(): Loot {
 
 // ---- Spinner geometry -------------------------------------------------------
 
-const CARD_W = 104; // px
-const CARD_GAP = 8; // px
+const CARD_W = 148; // px
+const CARD_GAP = 10; // px
 const STEP = CARD_W + CARD_GAP;
-const STRIP_LEN = 56;
-const WIN_INDEX = 48; // where the winning card sits in the strip
-const SPIN_MS = 6800;
+const STRIP_LEN = 96;
+const WIN_INDEX = 84; // where the winning card sits in the strip
+const SPIN_MS = 9000;
 
 type Phase = "book" | "gift" | "spin";
 
@@ -84,9 +84,9 @@ export default function WelcomeIntro() {
   }, [winner]);
   const [spinning, setSpinning] = useState(false);
   const [landed, setLanded] = useState(false);
-  const [offset, setOffset] = useState(0);
   const laneRef = useRef<HTMLDivElement>(null);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   // Book slides up, then the writing starts.
   useEffect(() => {
@@ -137,30 +137,41 @@ export default function WelcomeIntro() {
   const unlock = () => {
     if (spinning) return;
     const lane = laneRef.current;
-    if (!lane) return;
+    const track = trackRef.current;
+    if (!lane || !track) return;
     const laneW = lane.clientWidth;
     // Land the winning card under the centre marker (with a little jitter).
-    const jitter = (Math.random() - 0.5) * CARD_W * 0.5;
+    const jitter = (Math.random() - 0.5) * CARD_W * 0.6;
     const target = WIN_INDEX * STEP + CARD_W / 2 - laneW / 2 + jitter;
     setSpinning(true);
     sfx.play("unlock");
-    // Ticks while cards fly past, thinning out as it decelerates.
-    let t = 0;
-    tickRef.current = setInterval(() => {
-      t += 90;
-      if (t < SPIN_MS * 0.75) sfx.play("tick");
-    }, 90);
-    requestAnimationFrame(() => requestAnimationFrame(() => setOffset(-target)));
-    later(() => {
-      if (tickRef.current) clearInterval(tickRef.current);
-      setLanded(true);
-      sfx.play("levelup");
-    }, SPIN_MS + 250);
+    // Frame-driven spin: blazing start, stays fast, long wind-down at the end.
+    const t0 = performance.now();
+    let lastIdx = -1;
+    const frame = (now: number) => {
+      const p = Math.min(1, (now - t0) / SPIN_MS);
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic keeps speed up
+      const x = -target * eased;
+      track.style.transform = `translateX(${x}px)`;
+      // Clack every time a card crosses the centre marker.
+      const centerIdx = Math.floor((target * eased + laneW / 2) / STEP);
+      if (centerIdx !== lastIdx) {
+        lastIdx = centerIdx;
+        sfx.play("tick");
+      }
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(frame);
+      } else {
+        setLanded(true);
+        sfx.play("levelup");
+      }
+    };
+    rafRef.current = requestAnimationFrame(frame);
   };
 
   useEffect(() => {
     return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -234,9 +245,9 @@ export default function WelcomeIntro() {
 
       {/* ---- Phase 3: the case spinner ---- */}
       {phase === "spin" && (
-        <div className="absolute inset-0 flex items-center justify-center p-3">
-          <div className="dc-pop w-full max-w-3xl rounded-2xl border border-[#2a4133] bg-[#101a13] p-4 shadow-2xl sm:p-6">
-            <h2 className="mb-3 text-center text-xl font-extrabold text-white sm:text-2xl">
+        <div className="absolute inset-0 flex items-center justify-center p-2">
+          <div className="dc-pop w-[min(97vw,1360px)] rounded-2xl border border-[#2a4133] bg-[#101a13] p-4 shadow-2xl sm:p-6">
+            <h2 className="mb-3 text-center text-2xl font-extrabold text-white sm:text-3xl">
               {landed ? (
                 <>
                   You got{" "}
@@ -253,25 +264,19 @@ export default function WelcomeIntro() {
             {/* Lane */}
             <div
               ref={laneRef}
-              className="relative overflow-hidden rounded-xl border border-[#243b2c] bg-[#0b140e] py-3"
+              className="relative overflow-hidden rounded-xl border border-[#243b2c] bg-[#0b140e] py-4"
             >
               {/* centre marker */}
-              <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-[3px] -translate-x-1/2 bg-[#f0b23a]" />
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-[4px] -translate-x-1/2 bg-[#f0b23a]" />
               <div
+                ref={trackRef}
                 className="flex"
-                style={{
-                  gap: `${CARD_GAP}px`,
-                  transform: `translateX(${offset}px)`,
-                  transition: spinning
-                    ? `transform ${SPIN_MS}ms cubic-bezier(0.08, 0.72, 0.06, 1)`
-                    : undefined,
-                  willChange: "transform",
-                }}
+                style={{ gap: `${CARD_GAP}px`, willChange: "transform" }}
               >
                 {strip.map((l, i) => (
                   <div
                     key={i}
-                    className={`flex shrink-0 flex-col items-center rounded-lg border p-2 ${
+                    className={`flex shrink-0 flex-col items-center rounded-lg border p-3 ${
                       landed && i === WIN_INDEX
                         ? "border-[#4ade80] bg-[#123021]"
                         : "border-[#243b2c] bg-[#101a13]"
@@ -282,14 +287,14 @@ export default function WelcomeIntro() {
                       src={l.img}
                       alt=""
                       draggable={false}
-                      className="h-14 w-14 select-none object-contain"
+                      className="h-24 w-24 select-none object-contain"
                     />
-                    <span className="mt-1 text-xs font-extrabold text-white">×{l.qty}</span>
-                    <span className="w-full truncate text-center text-[9px] font-semibold text-[#9db8a5]">
+                    <span className="mt-1 text-base font-extrabold text-white">×{l.qty}</span>
+                    <span className="w-full truncate text-center text-[11px] font-semibold text-[#9db8a5]">
                       {l.name}
                     </span>
                     <span
-                      className="mt-1 h-[3px] w-full rounded-full"
+                      className="mt-1.5 h-[4px] w-full rounded-full"
                       style={{ background: l.accent }}
                     />
                   </div>

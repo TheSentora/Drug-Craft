@@ -56,6 +56,34 @@ function tone(
   osc.stop(t0 + dur + 0.03);
 }
 
+/** Short filtered white-noise burst — hard mechanical clicks/clacks. */
+function noise(
+  dur: number,
+  delay: number,
+  vol: number,
+  filterFreq: number,
+  filterType: BiquadFilterType = "highpass",
+) {
+  const a = audio();
+  if (!a) return;
+  const t0 = a.currentTime + delay;
+  const len = Math.max(1, (dur * a.sampleRate) | 0);
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const filt = a.createBiquadFilter();
+  filt.type = filterType;
+  filt.frequency.value = filterFreq;
+  const g = a.createGain();
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(filt).connect(g).connect(a.destination);
+  src.start(t0);
+  src.stop(t0 + dur + 0.02);
+}
+
 export type SfxName =
   | "plant"
   | "harvest"
@@ -116,12 +144,14 @@ export const sfx = {
         tone(150, 0.11, 0, "square", 0.045);
         break;
       case "type":
-        // Quiet pen-scratch blip for the handwriting intro.
-        tone(1500 + Math.random() * 700, 0.02, 0, "triangle", 0.035);
+        // Hard typewriter clack for the handwriting intro.
+        noise(0.024, 0, 0.22, 2400, "highpass");
+        tone(190, 0.028, 0, "square", 0.07);
         break;
       case "tick":
-        // Case-spinner tick as cards pass the marker.
-        tone(900, 0.03, 0, "square", 0.05);
+        // Hard mechanical clack as spinner cards pass the marker.
+        noise(0.02, 0, 0.28, 1600, "highpass");
+        tone(300, 0.04, 0, "square", 0.11);
         break;
     }
   },
