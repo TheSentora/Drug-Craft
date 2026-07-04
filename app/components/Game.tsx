@@ -16,6 +16,7 @@ import { CropId } from "../game/types";
 import { cloud } from "../game/cloud";
 import AccountControl from "./AccountControl";
 import LabScreen from "./LabScreen";
+import LoginScreen from "./LoginScreen";
 import SyntheticLab from "./SyntheticLab";
 
 function fmtGrow(seconds: number): string {
@@ -155,6 +156,12 @@ export default function Game() {
     gameStore.getVersion,
     gameStore.getVersion,
   );
+  // Re-render on cloud auth changes (login / logout / initial session check).
+  useSyncExternalStore(
+    cloud.subscribe,
+    () => `${cloud.ready()}:${cloud.getUser()?.id ?? ""}`,
+    () => "server",
+  );
 
   useEffect(() => {
     gameStore.init();
@@ -169,15 +176,20 @@ export default function Game() {
     return () => document.removeEventListener("visibilitychange", onLeave);
   }, []);
 
-  if (!mounted) {
+  if (!mounted || (cloud.enabled && !cloud.ready())) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0f1a12] text-emerald-100">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#0f1a12] text-emerald-100">
         <div className="text-center">
           <div className="text-4xl">🌱</div>
           <p className="mt-3 text-sm text-emerald-300/70">Loading farm…</p>
         </div>
       </main>
     );
+  }
+
+  // When cloud saves are on, require login — the sign-up/main menu screen.
+  if (cloud.enabled && !cloud.getUser()) {
+    return <LoginScreen />;
   }
 
   const state = gameStore.getState();

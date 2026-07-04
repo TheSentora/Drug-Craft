@@ -15,6 +15,7 @@ type Status = "idle" | "syncing" | "synced" | "error";
 let user: CloudUser | null = null;
 let status: Status = "idle";
 let initialized = false;
+let authChecked = false;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 
 const listeners = new Set<() => void>();
@@ -98,6 +99,10 @@ export const cloud = {
   getStatus(): Status {
     return status;
   },
+  /** True once the initial session lookup has completed (avoids a login flash). */
+  ready(): boolean {
+    return authChecked;
+  },
 
   async init() {
     if (initialized || !supabase) return;
@@ -110,8 +115,10 @@ export const cloud = {
     if (data.session?.user) {
       const u = data.session.user;
       setUser({ id: u.id, email: u.email ?? "" });
-      await pullAndReconcile();
     }
+    authChecked = true;
+    notify();
+    if (data.session?.user) await pullAndReconcile();
 
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
