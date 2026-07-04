@@ -47,12 +47,20 @@ export type ProductId =
   | "dried_tobacco"
   | "cocaine"
   | "heroin"
+  | "meth"
+  | "fentanyl"
   // buyable reagents
   | "sulfuric_acid"
   | "gasoline"
-  | "acetic_anhydride";
+  | "acetic_anhydride"
+  | "precursor";
 
-export type StationId = "incubator" | "cocaine" | "synthesis";
+export type StationId =
+  | "incubator"
+  | "cocaine"
+  | "synthesis"
+  | "meth"
+  | "fentanyl";
 
 /** A running processing job at a lab station. */
 export interface LabJob {

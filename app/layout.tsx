@@ -2,8 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DrugCraft — Grow Your Empire",
+  title: "DrugCraft",
   description: "A farming game — grow tobacco, cannabis, coca and more.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "DrugCraft",
+  },
 };
 
 export const viewport: Viewport = {

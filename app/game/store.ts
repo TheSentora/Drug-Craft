@@ -27,7 +27,18 @@ export const STATION_SLOTS: Record<StationId, number> = {
   incubator: 4,
   cocaine: 3,
   synthesis: 3,
+  meth: 2,
+  fentanyl: 2,
 };
+
+/** Cash cost to finish a running job immediately (scales with time left). */
+export function finishNowCost(job: LabJob, now: number): number {
+  const r = recipeById(job.recipeId);
+  if (!r) return 0;
+  const msLeft = Math.max(0, recipeDuration(r) - (now - job.startedAt));
+  const minsLeft = msLeft / 60000;
+  return Math.max(5, Math.ceil(minsLeft * 1.5));
+}
 
 /** Requirements to unlock the second (Synthetic) lab. */
 export const LAB2_UNLOCK_LEVEL = 10;
@@ -183,13 +194,15 @@ function setMessage(text: string, kind: MessageKind = "info") {
   }, 2600);
 }
 
-/** Add XP, announcing level-ups. */
+/** Add XP, announcing level-ups (each level pays a cash bonus). */
 function addXp(n: number) {
   const before = levelForXp(state.xp);
   state.xp += n;
   const after = levelForXp(state.xp);
   if (after > before) {
-    setMessage(`⭐ Level up! You reached level ${after}`, "good");
+    const bonus = after * 50;
+    state.cash += bonus;
+    setMessage(`⭐ Level ${after}! +$${bonus.toLocaleString()}`, "good");
     sfx.play("levelup");
   }
 }
@@ -644,6 +657,24 @@ export const gameStore = {
     });
     sfx.play("plant");
     setMessage(`${r.name} started`, "info");
+    changed();
+  },
+
+  /** Pay cash to finish a running job instantly. */
+  finishJobNow(jobId: number) {
+    const job = state.jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const now = Date.now();
+    if (jobReady(job, now)) return;
+    const cost = finishNowCost(job, now);
+    if (state.cash < cost) {
+      setMessage(`Need $${cost.toLocaleString()} to finish now`, "bad");
+      return;
+    }
+    state.cash -= cost;
+    const r = recipeById(job.recipeId);
+    if (r) job.startedAt = now - recipeDuration(r);
+    sfx.play("sell");
     changed();
   },
 

@@ -111,7 +111,7 @@ function DockButton({
   onClick,
   accent,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   active?: boolean;
   badge?: number;
@@ -439,7 +439,18 @@ export default function Game() {
       {/* Bottom dock */}
       <nav className="safe-b pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center p-2">
         <div className="pointer-events-auto flex items-center gap-1 rounded-2xl bg-black/55 p-1 ring-1 ring-white/10 backdrop-blur">
-          <DockButton icon="🌱" label="Seeds" active={panel === "seeds"} onClick={() => togglePanel("seeds")} />
+          <DockButton
+            icon={
+              <CropIcon
+                id={state.selectedCrop}
+                emoji={CROPS[state.selectedCrop].emoji}
+                className="h-5 w-5 object-contain"
+              />
+            }
+            label="Seeds"
+            active={panel === "seeds"}
+            onClick={() => togglePanel("seeds")}
+          />
           <DockButton
             icon="🏪"
             label="Market"

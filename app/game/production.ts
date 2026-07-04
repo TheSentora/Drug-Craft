@@ -98,6 +98,22 @@ export const PRODUCTS: Record<ProductId, ProductDef> = {
     sellPrice: 2600,
     color: "#8a5a3a",
   },
+  meth: {
+    id: "meth",
+    name: "Crystal Meth",
+    emoji: "🧊",
+    kind: "refined",
+    sellPrice: 3800,
+    color: "#8fd8f0",
+  },
+  fentanyl: {
+    id: "fentanyl",
+    name: "Fentanyl",
+    emoji: "☠️",
+    kind: "refined",
+    sellPrice: 6500,
+    color: "#e07a8a",
+  },
   // ---- buyable reagents ----
   sulfuric_acid: {
     id: "sulfuric_acid",
@@ -125,6 +141,15 @@ export const PRODUCTS: Record<ProductId, ProductDef> = {
     sellPrice: 0,
     buyPrice: 130,
     color: "#8ad0d0",
+  },
+  precursor: {
+    id: "precursor",
+    name: "Precursor Kit",
+    emoji: "🧰",
+    kind: "reagent",
+    sellPrice: 0,
+    buyPrice: 220,
+    color: "#c9b0e8",
   },
 };
 
@@ -236,6 +261,32 @@ export const RECIPES: Recipe[] = [
     xp: 140,
     unlockLevel: 6,
   },
+  {
+    id: "make_meth",
+    station: "meth",
+    name: "Cook Meth",
+    inputs: [
+      { product: "precursor", qty: 2 },
+      { product: "sulfuric_acid", qty: 1 },
+    ],
+    output: { product: "meth", qty: 1 },
+    hours: 8,
+    xp: 220,
+    unlockLevel: 10,
+  },
+  {
+    id: "make_fentanyl",
+    station: "fentanyl",
+    name: "Make Fentanyl",
+    inputs: [
+      { product: "precursor", qty: 2 },
+      { product: "acetic_anhydride", qty: 2 },
+    ],
+    output: { product: "fentanyl", qty: 1 },
+    hours: 14,
+    xp: 400,
+    unlockLevel: 12,
+  },
 ];
 
 export interface StationDef {
@@ -243,18 +294,24 @@ export interface StationDef {
   name: string;
   emoji: string;
   color: string;
+  /** Which lab building this station lives in. */
+  lab: 1 | 2;
 }
 
 export const STATIONS: StationDef[] = [
-  { id: "incubator", name: "Drying Incubator", emoji: "🌡️", color: "#e0a54a" },
-  { id: "cocaine", name: "Refinery", emoji: "🧫", color: "#7fb0e6" },
-  { id: "synthesis", name: "Synthesis Bench", emoji: "⚗️", color: "#b98ad6" },
+  { id: "incubator", name: "Drying Incubator", emoji: "🌡️", color: "#e0a54a", lab: 1 },
+  { id: "cocaine", name: "Refinery", emoji: "🧫", color: "#7fb0e6", lab: 1 },
+  { id: "synthesis", name: "Synthesis Bench", emoji: "⚗️", color: "#b98ad6", lab: 1 },
+  { id: "meth", name: "Meth Lab", emoji: "🧊", color: "#8fd8f0", lab: 2 },
+  { id: "fentanyl", name: "Fentanyl Bench", emoji: "☠️", color: "#e07a8a", lab: 2 },
 ];
 
 export const RECIPES_BY_STATION: Record<StationId, Recipe[]> = {
   incubator: RECIPES.filter((r) => r.station === "incubator"),
   cocaine: RECIPES.filter((r) => r.station === "cocaine"),
   synthesis: RECIPES.filter((r) => r.station === "synthesis"),
+  meth: RECIPES.filter((r) => r.station === "meth"),
+  fentanyl: RECIPES.filter((r) => r.station === "fentanyl"),
 };
 
 export function recipeById(id: string): Recipe | undefined {
