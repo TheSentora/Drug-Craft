@@ -144,9 +144,9 @@ export const sfx = {
         tone(150, 0.11, 0, "square", 0.045);
         break;
       case "type":
-        // Hard typewriter clack for the handwriting intro.
-        noise(0.024, 0, 0.22, 2400, "highpass");
-        tone(190, 0.028, 0, "square", 0.07);
+        // Punchy typewriter thock: pitch-dropping body + tight click, no hiss.
+        tone(600 + Math.random() * 180, 0.04, 0, "triangle", 0.16, 230);
+        noise(0.012, 0, 0.09, 1900, "bandpass");
         break;
       case "tick":
         // Hard mechanical clack as spinner cards pass the marker.

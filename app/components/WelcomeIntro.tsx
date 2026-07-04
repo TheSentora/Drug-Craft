@@ -70,6 +70,7 @@ export default function WelcomeIntro() {
   const [sceneIdx, setSceneIdx] = useState(-1);
   const [shown, setShown] = useState(0);
   const [leaving, setLeaving] = useState(false);
+  const lastClack = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const later = (fn: () => void, ms: number) => {
     timers.current.push(setTimeout(fn, ms));
@@ -108,7 +109,14 @@ export default function WelcomeIntro() {
       i++;
       setShown(i);
       const ch = text[i - 1];
-      if (ch !== "\n" && ch !== " ") sfx.play("type");
+      if (ch !== "\n" && ch !== " ") {
+        // Cap the clack rate so it sounds like keystrokes, not a buzz.
+        const now = performance.now();
+        if (now - lastClack.current > 70) {
+          lastClack.current = now;
+          sfx.play("type");
+        }
+      }
       if (i >= text.length) {
         // Page done → pause, then next page or the chicken sinks away.
         later(() => {
