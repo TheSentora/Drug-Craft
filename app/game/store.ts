@@ -976,6 +976,51 @@ export const gameStore = {
     changed();
   },
 
+  // ---- Admin supply (dev/owner tool; UI is gated to the admin account) ----
+
+  adminSupply(opts: {
+    cash?: number;
+    usdc?: number;
+    xp?: number;
+    seed?: { crop: CropId; qty: number };
+    product?: { id: ProductId; qty: number };
+    unlockLab2?: boolean;
+  }) {
+    const bits: string[] = [];
+    if (opts.cash) {
+      state.cash += opts.cash;
+      bits.push(`$${opts.cash.toLocaleString()}`);
+    }
+    if (opts.usdc) {
+      state.usdc = Math.round((state.usdc + opts.usdc) * 100) / 100;
+      bits.push(`$${opts.usdc} USDC`);
+    }
+    if (opts.seed) {
+      state.seeds[opts.seed.crop] =
+        (state.seeds[opts.seed.crop] ?? 0) + opts.seed.qty;
+      bits.push(`${opts.seed.qty} ${CROPS[opts.seed.crop].name} seeds`);
+    }
+    if (opts.product) {
+      addProduct(opts.product.id, opts.product.qty);
+      const amount = isGramProduct(opts.product.id)
+        ? fmtGrams(opts.product.qty)
+        : `${opts.product.qty}`;
+      bits.push(`${amount} ${PRODUCTS[opts.product.id].name}`);
+    }
+    if (opts.unlockLab2 && !state.lab2Unlocked) {
+      state.lab2Unlocked = true;
+      bits.push("Synthetic Lab");
+    }
+    if (opts.xp) {
+      addXp(opts.xp);
+      bits.push(`${opts.xp} XP`);
+    }
+    if (bits.length === 0) return;
+    sfx.play("order");
+    setMessage(`Supplied ${bits.join(", ")}`, "good");
+    changed();
+  },
+
   // ---- Chopping trees ----------------------------------------------------
 
   /** Route a click on a choppable tree: start / wait / collect. */

@@ -11,11 +11,18 @@ import { CROP_LIST, CROPS } from "../game/crops";
 import { levelForXp, levelProgress } from "../game/levels";
 import { FarmRenderer } from "../game/renderer";
 import { sfx } from "../game/sfx";
-import { gameStore, growRange, plotReadyCount } from "../game/store";
+import {
+  CHOP_COST,
+  chopReady,
+  gameStore,
+  growRange,
+  plotReadyCount,
+} from "../game/store";
 import { CropId } from "../game/types";
 import { cloud } from "../game/cloud";
 import AccountControl from "./AccountControl";
 import ContractAddress from "./ContractAddress";
+import HelpPanel from "./HelpPanel";
 import LabScreen from "./LabScreen";
 import LoginScreen from "./LoginScreen";
 import SyntheticLab from "./SyntheticLab";
@@ -152,6 +159,7 @@ export default function Game() {
   const [muted, setMuted] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
   const [lab2Open, setLab2Open] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [panel, setPanel] = useState<PanelId | null>(null);
   const openLab = useCallback(() => setLabOpen(true), []);
   const openLab2 = useCallback(() => setLab2Open(true), []);
@@ -225,6 +233,22 @@ export default function Game() {
   const now = Date.now();
   const readyToHarvest = state.plots.some((p) => plotReadyCount(p, now) > 0);
 
+  // Early-game hints so a new player always knows the next step.
+  const totalSeeds = Object.values(state.seeds).reduce((s, n) => s + (n ?? 0), 0);
+  const anyPlanted = state.plots.some((p) => p.plants.length > 0);
+  const hint =
+    level >= 3 || !state.welcomed
+      ? null
+      : state.chopJob
+        ? chopReady(state.chopJob, now)
+          ? "Tree's down — tap it to collect your seeds"
+          : "Chopping… the tree drops seeds when it falls"
+        : totalSeeds === 0 && !anyPlanted
+          ? `No seeds — tap a tree and chop it ($${CHOP_COST}) to find some`
+          : totalSeeds > 0 && !anyPlanted
+            ? "Pick a seed in Seeds, then tap a dirt tile to plant"
+            : null;
+
   const panelTitle =
     panel === "seeds" ? "🌱 Seeds" : panel === "market" ? "🏪 Market" : "📦 Orders";
 
@@ -259,6 +283,13 @@ export default function Game() {
             💵 ${state.cash.toLocaleString()}
           </div>
           <AccountControl />
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="rounded-lg px-2 py-1.5 text-base transition active:scale-95 hover:bg-[#22362a]"
+            title="How to play"
+          >
+            ❓
+          </button>
           <button
             onClick={() => setMuted(sfx.toggle())}
             className="rounded-lg px-2 py-1.5 text-base transition active:scale-95 hover:bg-[#22362a]"
@@ -445,6 +476,15 @@ export default function Game() {
         </div>
       )}
 
+      {/* Early-game hint */}
+      {hint && !panel && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[4.75rem] z-20 flex justify-center px-3">
+          <div className="rounded-lg border border-[#2a4133] bg-[#132018] px-3 py-1.5 text-xs font-semibold text-[#bcd6c4]">
+            💡 {hint}
+          </div>
+        </div>
+      )}
+
       {/* Bottom dock */}
       <nav className="safe-b pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center p-2">
         <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-[#2a4133] bg-[#132018] p-1">
@@ -490,6 +530,7 @@ export default function Game() {
 
       {labOpen && <LabScreen onClose={() => setLabOpen(false)} />}
       {lab2Open && <SyntheticLab onClose={() => setLab2Open(false)} />}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}
 
       {/* New players are greeted by Chikkie's welcome book (once cloud has settled). */}
       {!state.welcomed && (!cloud.enabled || cloud.hydrated()) && <WelcomeIntro />}

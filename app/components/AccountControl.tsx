@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { cloud } from "../game/cloud";
 import { gameStore } from "../game/store";
+import AdminSupply from "./AdminSupply";
 
 const ADMIN_EMAIL = (
   process.env.NEXT_PUBLIC_ADMIN_EMAIL || "electroolite@gmail.com"
@@ -16,6 +17,7 @@ export default function AccountControl() {
     () => "",
   );
   const [menu, setMenu] = useState(false);
+  const [supply, setSupply] = useState(false);
 
   const user = cloud.getUser();
   if (!cloud.enabled) return null;
@@ -77,6 +79,17 @@ export default function AccountControl() {
               🐔 Replay intro
             </button>
           )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setSupply(true);
+                setMenu(false);
+              }}
+              className="block w-full px-3 py-2 text-left text-xs font-semibold text-[#5fe08a] hover:bg-[#1a2c20]"
+            >
+              📦 Supply
+            </button>
+          )}
           <button
             onClick={() => {
               cloud.signOut();
@@ -88,6 +101,7 @@ export default function AccountControl() {
           </button>
         </div>
       )}
+      {supply && <AdminSupply onClose={() => setSupply(false)} />}
     </div>
   );
 }
