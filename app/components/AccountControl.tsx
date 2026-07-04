@@ -12,13 +12,27 @@ const ADMIN_EMAIL = (
 export default function AccountControl() {
   useSyncExternalStore(
     cloud.subscribe,
-    () => `${cloud.getUser()?.id ?? ""}:${cloud.getStatus()}`,
+    () => `${cloud.getUser()?.id ?? ""}:${cloud.getStatus()}:${cloud.isGuest()}`,
     () => "",
   );
   const [menu, setMenu] = useState(false);
 
   const user = cloud.getUser();
-  if (!cloud.enabled || !user) return null;
+  if (!cloud.enabled) return null;
+
+  // Guest: offer a way to log in / create an account.
+  if (!user) {
+    if (!cloud.isGuest()) return null;
+    return (
+      <button
+        onClick={() => cloud.exitGuest()}
+        className="rounded-lg border border-[#2a4133] bg-[#0e2a19] px-2.5 py-1.5 text-xs font-bold text-[#5fe08a] transition active:scale-95 hover:bg-[#123a22]"
+        title="Create an account to save your progress"
+      >
+        Log in
+      </button>
+    );
+  }
 
   const status = cloud.getStatus();
   const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL;

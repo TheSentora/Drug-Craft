@@ -1,5 +1,6 @@
 "use client";
 
+import { cloud } from "../game/cloud";
 import AuthForm from "./AuthForm";
 
 export default function LoginScreen() {
@@ -25,6 +26,18 @@ export default function LoginScreen() {
             We need you to supply drugs!
           </p>
           <AuthForm />
+
+          <div className="mt-4 border-t border-[#2a4133] pt-3">
+            <button
+              onClick={() => cloud.playAsGuest()}
+              className="w-full rounded-xl border border-[#2a4133] bg-[#1a2c20] px-4 py-2.5 text-sm font-bold text-[#bcd6c4] transition active:scale-[0.98] hover:bg-[#22362a]"
+            >
+              Play as guest
+            </button>
+            <p className="mt-1.5 text-center text-[11px] text-[#7f9c88]">
+              No account — progress saved on this device only.
+            </p>
+          </div>
         </div>
       </div>
     </main>

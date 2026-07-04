@@ -162,10 +162,10 @@ export default function Game() {
     gameStore.getVersion,
     gameStore.getVersion,
   );
-  // Re-render on cloud auth changes (login / logout / session check / reconcile).
+  // Re-render on cloud auth changes (login / logout / session check / reconcile / guest).
   useSyncExternalStore(
     cloud.subscribe,
-    () => `${cloud.ready()}:${cloud.hydrated()}:${cloud.getUser()?.id ?? ""}`,
+    () => `${cloud.ready()}:${cloud.hydrated()}:${cloud.isGuest()}:${cloud.getUser()?.id ?? ""}`,
     () => "server",
   );
 
@@ -193,8 +193,9 @@ export default function Game() {
     );
   }
 
-  // When cloud saves are on, require login — the sign-up/main menu screen.
-  if (cloud.enabled && !cloud.getUser()) {
+  // When cloud saves are on, require login — unless the player chose to play
+  // as a guest (localStorage only, no account).
+  if (cloud.enabled && !cloud.getUser() && !cloud.isGuest()) {
     return <LoginScreen />;
   }
 

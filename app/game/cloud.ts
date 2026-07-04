@@ -18,7 +18,11 @@ let initialized = false;
 let authChecked = false;
 /** True once the first local↔cloud reconcile has settled (or there's nothing to load). */
 let reconciled = false;
+/** Player chose "play as guest" — skip the login gate, localStorage only. */
+let guest = false;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+
+const GUEST_KEY = "drugcraft:guest";
 
 const listeners = new Set<() => void>();
 function notify() {
@@ -109,10 +113,34 @@ export const cloud = {
   hydrated(): boolean {
     return reconciled;
   },
+  /** Playing without an account (localStorage only, no sync). */
+  isGuest(): boolean {
+    return guest;
+  },
+  /** Skip login and play as a guest. */
+  playAsGuest() {
+    guest = true;
+    try {
+      window.localStorage.setItem(GUEST_KEY, "1");
+    } catch {}
+    notify();
+  },
+  /** Leave guest mode (e.g. to log in / sign up). */
+  exitGuest() {
+    guest = false;
+    try {
+      window.localStorage.removeItem(GUEST_KEY);
+    } catch {}
+    notify();
+  },
 
   async init() {
     if (initialized || !supabase) return;
     initialized = true;
+
+    try {
+      guest = window.localStorage.getItem(GUEST_KEY) === "1";
+    } catch {}
 
     // Push to cloud whenever the game saves locally.
     gameStore.onSaved(() => schedulePush());
@@ -139,6 +167,11 @@ export const cloud = {
       if (session?.user) {
         const u = session.user;
         const wasLoggedOut = !user;
+        // A real login supersedes guest mode.
+        guest = false;
+        try {
+          window.localStorage.removeItem(GUEST_KEY);
+        } catch {}
         setUser({ id: u.id, email: u.email ?? "" });
         if (wasLoggedOut) {
           // Hold off trusting local state until this login's save is reconciled.
