@@ -7,7 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { CROP_LIST, CROPS } from "../game/crops";
+import { CROP_LIST, CROPS, cropIconUrl } from "../game/crops";
 import { levelForXp, levelProgress } from "../game/levels";
 import { FarmRenderer } from "../game/renderer";
 import { sfx } from "../game/sfx";
@@ -54,7 +54,7 @@ function CropIcon({
   if (failed) return <span className={className}>{emoji}</span>;
   return (
     <img
-      src={`/sprites/${id}.svg`}
+      src={cropIconUrl(id)}
       alt=""
       draggable={false}
       onError={() => setFailed(true)}

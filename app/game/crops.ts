@@ -74,3 +74,16 @@ export const CROPS: Record<CropId, CropDef> = {
 };
 
 export const CROP_LIST: CropDef[] = Object.values(CROPS);
+
+/** PNG seed-bag icons that replace the flat SVG for these crops. */
+const SEED_ICON: Partial<Record<CropId, string>> = {
+  tobacco: "/sprites/tobaccoseeds.png",
+  cannabis: "/sprites/cannabisseeds.png",
+  coca: "/sprites/cocaseeds.png",
+  poppy: "/sprites/poppyseeds.png",
+};
+
+/** Icon URL for a crop/seed — the PNG seed bag if we have one, else the SVG. */
+export function cropIconUrl(id: CropId): string {
+  return SEED_ICON[id] ?? `/sprites/${id}.svg`;
+}

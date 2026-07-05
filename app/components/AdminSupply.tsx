@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CROP_LIST } from "../game/crops";
+import { CROP_LIST, cropIconUrl } from "../game/crops";
 import { GRAM_PRODUCTS, PRODUCTS } from "../game/production";
 import { gameStore } from "../game/store";
 import { CropId } from "../game/types";
@@ -12,7 +12,7 @@ function SeedIcon({ id, emoji }: { id: CropId; emoji: string }) {
   if (failed) return <span className="text-xl">{emoji}</span>;
   return (
     <img
-      src={`/sprites/${id}.svg`}
+      src={cropIconUrl(id)}
       alt=""
       draggable={false}
       onError={() => setFailed(true)}
